@@ -528,7 +528,7 @@ class InferenceEngineConfig:
         default="round_robin",
         metadata={"help": "Request scheduling policy", "choices": ["round_robin"]},
     )
-    setup_timeout: float = field(default=120.0)
+    setup_timeout: float = field(default=360.0)
     request_timeout: float = field(
         default=3600, metadata={"help": "Timeout for HTTP requests."}
     )
@@ -742,11 +742,11 @@ class SlurmLauncherConfig:
     mount: str = field(
         default="/storage:/storage", metadata={"help": "Mount path for slurm."}
     )
-    trainer_image: str = field(
-        default="", metadata={"help": "slurm image for trainers."}
+    trainer_image: Optional[str] = field(
+        default=None, metadata={"help": "slurm image for trainers."}
     )
-    inference_server_image: str = field(
-        default="", metadata={"help": "slurm image for LLM inference."}
+    inference_server_image: Optional[str] = field(
+        default=None, metadata={"help": "slurm image for LLM inference."}
     )
 
 
