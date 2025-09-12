@@ -528,7 +528,7 @@ class InferenceEngineConfig:
         default="round_robin",
         metadata={"help": "Request scheduling policy", "choices": ["round_robin"]},
     )
-    setup_timeout: float = field(default=120.0)
+    setup_timeout: float = field(default=360.0)
     request_timeout: float = field(
         default=3600, metadata={"help": "Timeout for HTTP requests."}
     )
