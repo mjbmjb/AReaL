@@ -20,17 +20,25 @@ class ToolManager:
         
     async def execute_python(self, code: str) -> str:
         """执行Python代码"""
+        logger.info(f"🐍 Executing Python code: {code[:100]}...")
+        
         try:
             # 安全检查
+            logger.debug("🔒 Performing safety check")
             if not self._is_safe_code(code):
+                logger.warning("⚠️ Unsafe code detected, blocking execution")
                 return "Error: Unsafe code detected"
             
+            logger.debug("✅ Code passed safety check")
+            
             # 在沙箱中执行
+            logger.debug("🏃 Starting code execution in sandbox")
             result = await self._execute_in_sandbox(code)
+            logger.info(f"✅ Python execution completed: {result[:100]}...")
             return result
             
         except Exception as e:
-            logger.error(f"Python execution error: {e}")
+            logger.error(f"❌ Python execution error: {e}")
             return f"Error: {str(e)}"
     
     def _is_safe_code(self, code: str) -> bool:
@@ -59,6 +67,8 @@ class ToolManager:
     
     async def _execute_in_sandbox(self, code: str) -> str:
         """在沙箱中执行Python代码"""
+        logger.debug(f"📁 Creating temporary file in sandbox: {self.sandbox_dir}")
+        
         # 创建临时文件
         with tempfile.NamedTemporaryFile(
             mode='w', 
@@ -69,8 +79,11 @@ class ToolManager:
             f.write(code)
             temp_file = f.name
         
+        logger.debug(f"📝 Temporary file created: {temp_file}")
+        
         try:
             # 执行Python代码
+            logger.debug(f"🚀 Starting subprocess with timeout: {self.timeout}s")
             process = await asyncio.create_subprocess_exec(
                 sys.executable, temp_file,
                 stdout=asyncio.subprocess.PIPE,
@@ -83,26 +96,38 @@ class ToolManager:
                 timeout=self.timeout
             )
             
+            logger.debug(f"📊 Process completed with return code: {process.returncode}")
+            logger.debug(f"📤 stdout: {stdout.decode('utf-8')[:200]}...")
+            if stderr:
+                logger.debug(f"⚠️ stderr: {stderr.decode('utf-8')[:200]}...")
+            
             # 清理临时文件
             os.unlink(temp_file)
+            logger.debug("🗑️ Temporary file cleaned up")
             
             if process.returncode == 0:
-                return stdout.decode('utf-8').strip()
+                result = stdout.decode('utf-8').strip()
+                logger.info(f"✅ Code execution successful: {result[:100]}...")
+                return result
             else:
                 error_msg = stderr.decode('utf-8').strip()
+                logger.error(f"❌ Code execution failed: {error_msg}")
                 return f"Error: {error_msg}"
                 
         except asyncio.TimeoutError:
+            logger.error(f"⏰ Code execution timeout after {self.timeout}s")
             return "Error: Execution timeout"
         except Exception as e:
+            logger.error(f"💥 Unexpected error during execution: {e}")
             return f"Error: {str(e)}"
         finally:
             # 确保清理临时文件
             try:
                 if os.path.exists(temp_file):
                     os.unlink(temp_file)
-            except:
-                pass
+                    logger.debug("🗑️ Emergency cleanup of temporary file")
+            except Exception as cleanup_error:
+                logger.warning(f"⚠️ Failed to cleanup temporary file: {cleanup_error}")
     
     async def execute_calculator(self, expression: str) -> str:
         """执行基础数学计算"""
