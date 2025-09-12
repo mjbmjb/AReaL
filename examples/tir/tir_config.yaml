@@ -93,7 +93,7 @@ train_dataset:
   shuffle: true
   pin_memory: true
   num_workers: 4
-  path: inclusionAI/AReaL-boba-Data
+  path: openai/gsm8k
   type: rl
   max_length: 2048
 
@@ -102,42 +102,9 @@ valid_dataset:
   shuffle: false
   pin_memory: true
   num_workers: 4
-  path: inclusionAI/AReaL-boba-Data
+  path: openai/gsm8k
   type: rl
   max_length: 2048
-
-# TIR特定配置
-tir:
-  max_turns: 5
-  tool_timeout: 30
-  enable_tools: ["python", "calculator"]
-  tool_call_tokens:
-    start: "<tool_call>"
-    end: "</tool_call>"
-    python_start: "<python>"
-    python_end: "</python>"
-    result_start: "<tool_result>"
-    result_end: "</tool_result>"
-
-# 工具配置
-tools:
-  python:
-    timeout: 30
-    safe_mode: true
-    allowed_modules: ["math", "numpy", "sympy"]
-  calculator:
-    timeout: 10
-    safe_mode: true
-
-# 奖励函数配置
-reward:
-  type: "math_accuracy"
-  partial_match_threshold: 0.5
-  answer_extraction_patterns:
-    - "the answer is"
-    - "final answer:"
-    - "result:"
-    - "solution:"
 
 # 工具配置
 saver:
