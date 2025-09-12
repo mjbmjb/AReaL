@@ -23,9 +23,10 @@ from areal.utils.saver import Saver
 from areal.utils.stats_logger import StatsLogger
 
 # TIR specific imports
-from .tir_workflow import TIRWorkflow
-from .tool_manager import ToolManager
-from .math_reward import MathRewardFunction
+from examples.tir.tir_workflow import TIRWorkflow
+from examples.tir.tool_manager import ToolManager
+from examples.tir.math_reward import MathRewardFunction
+
 
 
 def tir_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
