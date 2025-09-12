@@ -22,23 +22,35 @@ class MathRewardFunction:
     
     def __call__(self, prompt: str, completions: str, **kwargs) -> float:
         """计算奖励分数"""
+        logger.info("🎯 Starting reward calculation")
+        logger.debug(f"📝 Completions: {completions[:200]}...")
+        
         try:
             # 提取预测答案
+            logger.debug("🔍 Extracting predicted answer")
             predicted_answer = self._extract_answer(completions)
+            logger.info(f"🎯 Predicted answer: '{predicted_answer}'")
+            
             if not predicted_answer:
+                logger.warning("⚠️ No predicted answer found")
                 return 0.0
             
             # 获取真实答案
             ground_truth = kwargs.get("answer", "")
+            logger.info(f"✅ Ground truth: '{ground_truth}'")
+            
             if not ground_truth:
+                logger.warning("⚠️ No ground truth provided")
                 return 0.0
             
             # 计算奖励
+            logger.debug("🧮 Calculating reward")
             reward = self._calculate_reward(predicted_answer, ground_truth)
+            logger.info(f"💰 Final reward: {reward}")
             return reward
             
         except Exception as e:
-            logger.error(f"Error calculating reward: {e}")
+            logger.error(f"❌ Error calculating reward: {e}")
             return 0.0
     
     def _extract_answer(self, text: str) -> Optional[str]:
@@ -79,30 +91,38 @@ class MathRewardFunction:
     
     def _calculate_reward(self, predicted: str, ground_truth: str) -> float:
         """计算奖励分数"""
+        logger.debug(f"🧮 Comparing '{predicted}' vs '{ground_truth}'")
+        
         try:
             # 尝试数值比较
             if self._is_numeric(predicted) and self._is_numeric(ground_truth):
                 pred_num = float(predicted)
                 truth_num = float(ground_truth)
+                logger.debug(f"🔢 Numeric comparison: {pred_num} vs {truth_num}")
                 
                 # 检查是否相等（考虑浮点数精度）
                 if abs(pred_num - truth_num) < 1e-6:
+                    logger.info("✅ Numeric match found")
                     return 1.0
                 else:
+                    logger.info("❌ Numeric values don't match")
                     return 0.0
             
             # 尝试字符串比较
             if predicted.lower().strip() == ground_truth.lower().strip():
+                logger.info("✅ Exact string match found")
                 return 1.0
             
             # 尝试部分匹配
             if self._is_partial_match(predicted, ground_truth):
+                logger.info("🔍 Partial match found")
                 return 0.5
             
+            logger.info("❌ No match found")
             return 0.0
             
         except Exception as e:
-            logger.warning(f"Error in reward calculation: {e}")
+            logger.warning(f"⚠️ Error in reward calculation: {e}")
             return 0.0
     
     def _is_numeric(self, text: str) -> bool:

@@ -39,6 +39,25 @@ def main(args):
     config: GRPOConfig
 
     rank = int(os.getenv("RANK"))
+    
+    # 配置日志级别
+    import logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    # 设置TIR相关组件的日志级别
+    logging.getLogger("TIR workflow").setLevel(logging.INFO)
+    logging.getLogger("Tool Manager").setLevel(logging.INFO)
+    logging.getLogger("Math Reward").setLevel(logging.INFO)
+    
+    logger = logging.getLogger("TIR Training")
+    logger.info("🚀 Starting TIR training")
+    logger.info(f"📊 Configuration: {config.experiment_name}")
+    logger.info(f"🤖 Model: {config.actor.path}")
+    logger.info(f"📈 Batch size: {config.train_dataset.batch_size}")
+    
     tokenizer = load_hf_tokenizer(config.tokenizer_path)
 
     seeding.set_random_seed(config.seed, key=f"trainer{rank}")
@@ -116,9 +135,16 @@ def main(args):
     dist.broadcast_object_list(weight_update_meta, src=0)
     weight_update_meta = weight_update_meta[0]
 
-    # Initialize TIR components
+    # Initialize TIR components with hardcoded config
     tool_manager = ToolManager(timeout=30)
     reward_fn = MathRewardFunction()
+    
+    # TIR specific configuration
+    tir_config = {
+        "max_turns": 5,
+        "tool_timeout": 30,
+        "enable_tools": ["python", "calculator"]
+    }
     
     # Create TIR workflow
     if tokenizer.pad_token_id not in config.gconfig.stop_token_ids:
@@ -131,7 +157,7 @@ def main(args):
         gconfig=config.gconfig,
         tokenizer=tokenizer,
         tool_manager=tool_manager,
-        max_turns=5,
+        max_turns=tir_config["max_turns"],
         enable_thinking=False,
         dump_dir=os.path.join(
             StatsLogger.get_log_path(config.stats_logger), "generated"
@@ -143,7 +169,7 @@ def main(args):
         gconfig=config.gconfig.new(temperature=0.6),
         tokenizer=tokenizer,
         tool_manager=tool_manager,
-        max_turns=5,
+        max_turns=tir_config["max_turns"],
         enable_thinking=False,
         rollout_stat_scope="eval-rollout",
         dump_dir=os.path.join(

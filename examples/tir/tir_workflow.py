@@ -74,16 +74,24 @@ class TIRWorkflow(RolloutWorkflow):
     
     async def arun_episode(self, engine: InferenceEngine, data: Dict[str, Any]) -> TensorDict:
         """运行一个完整的TIR推理episode"""
+        logger.info("🚀 Starting TIR episode")
+        logger.info(f"📝 Input data: {data.get('messages', [{}])[0].get('content', '')[:100]}...")
+        logger.info(f"🎯 Expected answer: {data.get('answer', 'N/A')}")
+        
         # 初始化对话历史
         messages = data["messages"]
         conversation_history = []
         
         # 多轮推理循环
         for turn in range(self.max_turns):
-            logger.info(f"TIR Turn {turn + 1}/{self.max_turns}")
+            logger.info(f"🔄 TIR Turn {turn + 1}/{self.max_turns}")
+            logger.info(f"💬 Current messages count: {len(messages)}")
             
             # 生成响应
+            logger.debug(f"🤖 Generating response for turn {turn + 1}")
             response = await self._generate_response(engine, messages)
+            logger.info(f"📤 Generated response: {response[:200]}...")
+            
             conversation_history.append({
                 "turn": turn,
                 "response": response,
@@ -91,28 +99,42 @@ class TIRWorkflow(RolloutWorkflow):
             })
             
             # 检查是否包含工具调用
-            if self._has_tool_call(response):
-                logger.info(f"Tool call detected in turn {turn + 1}")
+            has_tool = self._has_tool_call(response)
+            logger.info(f"🔍 Tool call detected: {has_tool}")
+            
+            if has_tool:
+                logger.info(f"🛠️ Executing tools in turn {turn + 1}")
                 # 执行工具调用
                 tool_results = await self._execute_tools(response)
+                logger.info(f"✅ Tool execution completed: {len(tool_results)} results")
                 
                 # 将工具结果整合到对话中
                 messages = self._integrate_tool_results(messages, tool_results)
                 conversation_history[-1]["tool_results"] = tool_results
+                logger.info(f"🔗 Integrated tool results into conversation")
             else:
                 # 没有工具调用，检查是否是最终答案
-                if self._is_final_answer(response):
-                    logger.info(f"Final answer reached in turn {turn + 1}")
+                is_final = self._is_final_answer(response)
+                logger.info(f"🏁 Is final answer: {is_final}")
+                if is_final:
+                    logger.info(f"✅ Final answer reached in turn {turn + 1}")
                     break
         
         # 计算奖励
+        logger.info("🎯 Calculating reward...")
         reward = await self._calculate_reward(conversation_history, data)
+        logger.info(f"💰 Final reward: {reward}")
         
         # 格式化轨迹数据
-        return self._format_trajectory(conversation_history, reward)
+        logger.info("📊 Formatting trajectory data")
+        trajectory = self._format_trajectory(conversation_history, reward)
+        logger.info(f"✅ TIR episode completed with {len(conversation_history)} turns")
+        
+        return trajectory
     
     async def _generate_response(self, engine: InferenceEngine, messages: List[Dict]) -> str:
         """生成响应，支持工具调用检测"""
+        logger.debug("🔧 Preparing input for generation")
         # 准备输入
         input_ids = self.tokenizer.apply_chat_template(
             messages,
@@ -120,12 +142,15 @@ class TIRWorkflow(RolloutWorkflow):
             add_generation_prompt=True,
             enable_thinking=self.enable_thinking,
         )
+        logger.debug(f"📏 Input token length: {len(input_ids)}")
         
         # 设置生成配置，添加工具调用停止token
         gconfig = self.gconfig.new(
+            n_samples=1,
             stop_token_ids=[self.tool_tokens["tool_call_start"]],
             max_new_tokens=min(self.gconfig.max_new_tokens, 512)  # 限制单次生成长度
         )
+        logger.debug(f"⚙️ Generation config: max_tokens={gconfig.max_new_tokens}, stop_tokens={gconfig.stop_token_ids}")
         
         # 生成响应
         req = ModelRequest(
@@ -135,13 +160,17 @@ class TIRWorkflow(RolloutWorkflow):
             tokenizer=self.tokenizer,
         )
         
+        logger.debug("🚀 Calling engine.agenerate")
         resp = await engine.agenerate(req)
         response_text = self.tokenizer.decode(resp.output_tokens)
+        logger.debug(f"📝 Initial response: {response_text[:100]}...")
         
         # 如果检测到工具调用，继续生成工具调用内容
         if self._has_tool_call(response_text):
+            logger.info("🔧 Tool call detected, generating tool content")
             tool_content = await self._generate_tool_call(engine, resp)
             response_text += tool_content
+            logger.info(f"🛠️ Tool content added: {tool_content[:100]}...")
             
         return response_text
     
@@ -185,19 +214,39 @@ class TIRWorkflow(RolloutWorkflow):
     
     async def _execute_tools(self, response: str) -> List[Dict[str, Any]]:
         """执行工具调用"""
+        logger.info("🛠️ Starting tool execution")
         tool_results = []
         
         # 提取Python代码
         python_code = self._extract_python_code(response)
-        if python_code:
-            result = await self.tool_manager.execute_python(python_code)
-            tool_results.append({
-                "tool": "python",
-                "code": python_code,
-                "result": result,
-                "success": not result.startswith("Error:")
-            })
+        logger.info(f"🐍 Extracted Python code: {python_code}")
         
+        if python_code:
+            logger.info(f"▶️ Executing Python code: {python_code[:100]}...")
+            try:
+                result = await self.tool_manager.execute_python(python_code)
+                success = not result.startswith("Error:")
+                logger.info(f"✅ Python execution result: {result[:200]}...")
+                logger.info(f"📊 Execution success: {success}")
+                
+                tool_results.append({
+                    "tool": "python",
+                    "code": python_code,
+                    "result": result,
+                    "success": success
+                })
+            except Exception as e:
+                logger.error(f"❌ Python execution failed: {e}")
+                tool_results.append({
+                    "tool": "python",
+                    "code": python_code,
+                    "result": f"Error: {str(e)}",
+                    "success": False
+                })
+        else:
+            logger.warning("⚠️ No Python code found to execute")
+        
+        logger.info(f"🏁 Tool execution completed: {len(tool_results)} results")
         return tool_results
     
     def _extract_python_code(self, text: str) -> Optional[str]:
@@ -251,17 +300,28 @@ class TIRWorkflow(RolloutWorkflow):
     
     async def _calculate_reward(self, conversation_history: List[Dict], data: Dict[str, Any]) -> float:
         """计算奖励"""
+        logger.info("🎯 Starting reward calculation")
+        
         # 提取最终响应
         final_response = conversation_history[-1]["response"] if conversation_history else ""
+        expected_answer = data.get("answer", "")
+        
+        logger.info(f"📝 Final response: {final_response[:200]}...")
+        logger.info(f"🎯 Expected answer: {expected_answer}")
         
         # 使用奖励函数计算奖励
-        reward = await self.async_reward_fn(
-            prompt="",  # 这里可以传入完整的prompt
-            completions=final_response,
-            prompt_ids=[],
-            completion_ids=[],
-            **data
-        )
+        try:
+            reward = await self.async_reward_fn(
+                prompt="",  # 这里可以传入完整的prompt
+                completions=final_response,
+                prompt_ids=[],
+                completion_ids=[],
+                **data
+            )
+            logger.info(f"💰 Calculated reward: {reward}")
+        except Exception as e:
+            logger.error(f"❌ Reward calculation failed: {e}")
+            reward = 0.0
         
         # 记录奖励
         stats_tracker.get(self.rollout_stat_scope).scalar(reward=reward)
