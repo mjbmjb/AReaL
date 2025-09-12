@@ -11,15 +11,47 @@ from areal.utils import logging
 logger = logging.getLogger("Tool Manager")
 
 
-class ToolManager:
-    """工具管理器，负责执行各种工具调用"""
+class FakeToolManager:
+    """假的工具管理器，用于调试，直接返回dummy结果"""
     
     def __init__(self, timeout: int = 30):
         self.timeout = timeout
-        self.sandbox_dir = tempfile.mkdtemp(prefix="tir_sandbox_")
+        logger.info("🎭 Initializing FakeToolManager for debugging")
+        
+    async def execute_python(self, code: str) -> str:
+        """执行Python代码 - 假版本"""
+        logger.info(f"🐍 [FAKE] Executing Python code: {code[:100]}...")
+        return "dummy code output"
+    
+    async def execute_calculator(self, expression: str) -> str:
+        """执行基础数学计算 - 假版本"""
+        logger.info(f"🧮 [FAKE] Executing calculator: {expression}")
+        return "dummy calculator output"
+    
+    def cleanup(self):
+        """清理 - 假版本"""
+        logger.info("🗑️ [FAKE] Cleanup completed")
+
+
+class ToolManager:
+    """工具管理器，负责执行各种工具调用"""
+    
+    def __init__(self, timeout: int = 30, fake_mode: bool = False):
+        self.timeout = timeout
+        self.fake_mode = fake_mode
+        
+        if fake_mode:
+            logger.info("🎭 Using FakeToolManager for debugging")
+            self.fake_manager = FakeToolManager(timeout)
+        else:
+            self.sandbox_dir = tempfile.mkdtemp(prefix="tir_sandbox_")
+            logger.info(f"🔧 Using real ToolManager with sandbox: {self.sandbox_dir}")
         
     async def execute_python(self, code: str) -> str:
         """执行Python代码"""
+        if self.fake_mode:
+            return await self.fake_manager.execute_python(code)
+        
         logger.info(f"🐍 Executing Python code: {code[:100]}...")
         
         try:

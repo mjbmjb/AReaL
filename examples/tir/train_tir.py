@@ -137,7 +137,8 @@ def main(args):
     weight_update_meta = weight_update_meta[0]
 
     # Initialize TIR components with hardcoded config
-    tool_manager = ToolManager(timeout=30)
+    # 使用fake模式进行调试
+    tool_manager = ToolManager(timeout=30, fake_mode=True)
     reward_fn = MathRewardFunction()
     
     # TIR specific configuration
