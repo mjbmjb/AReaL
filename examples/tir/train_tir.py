@@ -34,6 +34,11 @@ def tir_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwa
     reward_fn = MathRewardFunction()
     return reward_fn(prompt, completions, answer=answer, **kwargs)
 
+def gsm8k_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
+    from areal.reward.math_parser import process_results
+
+    return int(process_results(completions, answer)[0])
+
 
 def main(args):
     config, _ = load_expr_config(args, GRPOConfig)
@@ -138,8 +143,8 @@ def main(args):
 
     # Initialize TIR components with hardcoded config
     # 使用fake模式进行调试
-    tool_manager = ToolManager(timeout=30, fake_mode=True)
-    reward_fn = MathRewardFunction()
+    tool_manager = ToolManager(timeout=30, fake_mode=False)
+    reward_fn = gsm8k_reward_fn
     
     # TIR specific configuration
     tir_config = {

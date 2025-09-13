@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 from abc import ABC, abstractmethod
 
-import logging
+from areal.utils import logging
 
 logger = logging.getLogger("Tool Manager")
 
@@ -265,12 +265,12 @@ class ToolRegistry:
     def __init__(self, timeout: int = 30, fake_mode: bool = False):
         self.tools = {
             ToolType.PYTHON: PythonTool(timeout, fake_mode),
-            ToolType.CALCULATOR: CalculatorTool(timeout, fake_mode),
+            # ToolType.CALCULATOR: CalculatorTool(timeout, fake_mode),
         }
         # 工具标记映射
         self.tool_markers = {
             ToolType.PYTHON: ("<python>", "</python>"),
-            ToolType.CALCULATOR: ("<calculator>", "</calculator>"),
+            # ToolType.CALCULATOR: ("<calculator>", "</calculator>"),
         }
     
     def get_tool(self, tool_type: ToolType) -> Optional[BaseTool]:
@@ -351,7 +351,7 @@ class ToolRouter:
                 logger.info(f"🔀 Routed to {tool_type.value} based on marker")
                 return tool_type
         
-        logger.warning(f"⚠️ No tool marker found in text: {text[:50]}...")
+        logger.warning(f"⚠️ No tool marker found in text: {text[-50:]}...")
         return None
 
 
@@ -426,7 +426,7 @@ class ToolManager:
     
     async def execute_tool_call(self, text: str) -> str:
         """统一的工具调用接口"""
-        logger.info(f"🔧 Processing tool call: {text[:100]}...")
+        logger.info(f"🔧 Processing tool call: {text[-100:]}...")
         
         # 1. 路由：判断需要调用哪个工具
         tool_type = self.router.route(text)

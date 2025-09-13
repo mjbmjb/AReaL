@@ -52,13 +52,16 @@ class TIRWorkflow(RolloutWorkflow):
         self.dump_dir = dump_dir
         self.async_reward_fn = AsyncRewardWrapper(reward_fn)
         
-        self.all_tool_markers = self.tool_manager.get_all_markers()
+        self.start_markers = self.tool_manager.get_all_start_markers()
+        self.end_markers = self.tool_manager.get_all_end_markers()
+
+        logger.info(f"start markers: {self.start_markers}, end markers {self.end_markers}")
     
     async def arun_episode(self, engine: InferenceEngine, data: Dict[str, Any]) -> TensorDict:
         """运行一个完整的TIR推理episode"""
         logger.info("🚀 Starting TIR episode")
-        logger.info(f"📝 Input data: {data.get('messages', [{}])[0].get('content', '')[:100]}...")
-        logger.info(f"🎯 Expected answer: {data.get('answer', 'N/A')}")
+        # logger.info(f"📝 Input data: {data.get('messages', [{}])[0].get('content', '')[:100]}...")
+        # logger.info(f"🎯 Expected answer: {data.get('answer', 'N/A')}")
         
         # 初始化对话历史
         messages = data["messages"]
@@ -67,7 +70,7 @@ class TIRWorkflow(RolloutWorkflow):
         if messages[0]["role"] == "user":
             messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT.format(tool_descriptions=self.tool_manager.get_tool_descriptions_prompt())})
         
-        logger.debug("🔧 Preparing input for generation")
+        logger.info("🔧 Preparing input for generation")
         # 准备输入
         input_ids = self.tokenizer.apply_chat_template(
             messages,
@@ -75,7 +78,7 @@ class TIRWorkflow(RolloutWorkflow):
             add_generation_prompt=True,
             enable_thinking=self.enable_thinking,
         )
-        logger.debug(f"📏 Input token length: {len(input_ids)}")
+        logger.info(f"📏 Input token length: {len(input_ids)}")
 
         n_samples = self.gconfig.n_samples
         version = engine.get_version()
@@ -101,9 +104,8 @@ class TIRWorkflow(RolloutWorkflow):
         for turn in range(self.max_turns):
             logger.info(f"🔄 TIR Turn {turn + 1}/{self.max_turns}")            
             # 生成响应
-            logger.debug(f"🤖 Generating response for turn {turn + 1}")
-
             resp, stop_reason = await self._generate_response(engine, input_ids)
+            logger.info(f"stop reason {stop_reason}")
 
             if turn == 0:
                 # 第一轮, 后续轮次需要拼接到seq上
@@ -112,15 +114,15 @@ class TIRWorkflow(RolloutWorkflow):
                 loss_mask = [0] * resp.input_len + [1] * resp.output_len
                 versions = [-1] * resp.input_len + resp.output_versions
             else:
-                seq += resp.output_tokens
-                logprobs += resp.output_logprobs
-                loss_mask += [1] * resp.output_len
-                versions += [-1] * resp.output_versions
+                seq.extend(resp.output_tokens)
+                logprobs.extend(resp.output_logprobs)
+                loss_mask.extend([1] * resp.output_len)
+                versions.extend(resp.output_versions)
 
             completions_str += self.tokenizer.decode(resp.output_tokens)
-            output_ids += resp.output_tokens
+            output_ids.extend(resp.output_tokens)
         
-            logger.info(f"📤 Generated response: {completions_str[-200:]}...")
+            logger.info(f"📤 Generated response: ..{completions_str[-100:]}")
             
             # 如果检测到工具调用，执行工具调用
             if stop_reason == "tool_call":
@@ -134,10 +136,10 @@ class TIRWorkflow(RolloutWorkflow):
                 tool_rsp_token_ids=encoding['input_ids']
                 # 拼接到seq上
                 # 构建tool mask
-                seq += tool_rsp_token_ids
-                logprobs += [0.0] * len(tool_rsp_token_ids)
-                loss_mask += [0] * len(tool_rsp_token_ids)
-                versions += [-1] * len(tool_rsp_token_ids)
+                seq.extend(tool_rsp_token_ids)
+                logprobs.extend([0.0] * len(tool_rsp_token_ids))
+                loss_mask.extend([0] * len(tool_rsp_token_ids))
+                versions.extend([-1] * len(tool_rsp_token_ids))
                 completions_str += tool_results
             else:
                 # 生成结束
@@ -153,7 +155,6 @@ class TIRWorkflow(RolloutWorkflow):
         )
         logger.info(f"💰 Final reward: {reward}")
 
-
         res = dict(
             input_ids=torch.tensor(seq).unsqueeze(0),
             logprobs=torch.tensor(logprobs).unsqueeze(0),
@@ -162,7 +163,7 @@ class TIRWorkflow(RolloutWorkflow):
             attention_mask=torch.ones(len(seq), dtype=torch.bool).unsqueeze(0),
             rewards=torch.tensor([float(reward)]),
         )
-        return res
+        return TensorDict(res, batch_size=[1])
 
     async def _generate_response(self, engine: InferenceEngine, input_ids: List[int]) -> str:
         """生成响应，支持工具调用检测"""
@@ -170,7 +171,7 @@ class TIRWorkflow(RolloutWorkflow):
         # 设置生成配置，添加工具调用停止token
         gconfig = self.gconfig.new(
             n_samples=1,
-            stop=[marker[1] for marker in self.all_tool_markers],
+            stop=[marker for marker in self.end_markers],
             max_new_tokens=min(self.gconfig.max_new_tokens, 512)  # 限制单次生成长度
         )
         logger.debug(f"⚙️ Generation config: max_tokens={gconfig.max_new_tokens}, stop_tokens={gconfig.stop_token_ids}")
@@ -186,10 +187,9 @@ class TIRWorkflow(RolloutWorkflow):
         logger.debug("🚀 Calling engine.agenerate")
         resp = await engine.agenerate(req)
         response_text = self.tokenizer.decode(resp.output_tokens)
-        logger.debug(f"📝 Initial response: {response_text[:100]}...")
+        logger.debug(f"📝 Initial response: {response_text[-100:]}...")
 
-        stop_reason = resp.get("stop_reason", "stop")
-        stop_reason = self.post_process_stop_reason(response_text, stop_reason)
+        stop_reason = self.post_process_stop_reason(response_text, resp.stop_reason)
 
         return resp, stop_reason
     
@@ -197,7 +197,8 @@ class TIRWorkflow(RolloutWorkflow):
         """检测是由于工具调用结束"""
         if stop_reason == "stop":
             # 检测是否有工具调用结束标记
-            if any(text.endswith(marker[1]) for marker in self.all_tool_markers):
+            if any(text.endswith(marker) for marker in self.end_markers):
+                logger.info(f"🔍 Detected tool call: {text[-10:]}")
                 return "tool_call"
         return stop_reason
     
