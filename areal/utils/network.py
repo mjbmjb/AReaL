@@ -8,7 +8,7 @@ def gethostname():
 
 
 def gethostip():
-    return socket.gethostbyname(socket.gethostname())
+    return "0.0.0.0"
 
 
 def find_free_ports(
