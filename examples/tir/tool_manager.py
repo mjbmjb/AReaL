@@ -2,6 +2,7 @@ import asyncio
 import re
 import subprocess
 import sys
+import traceback
 from typing import Dict, Any, Optional, List, Union
 import tempfile
 import os
@@ -14,6 +15,9 @@ from areal.utils import logging
 
 logger = logging.getLogger("Tool Manager")
 
+
+DONE = 'Done'
+ERROR = 'Error'
 
 class ToolType(Enum):
     """工具类型枚举"""
@@ -69,6 +73,48 @@ class BaseTool(ABC):
         pass
 
 
+class QwenPythonTool(BaseTool):
+    """Qwen Python代码执行工具"""
+
+    def __init__(self, timeout: int = 30, fake_mode: bool = False):
+        super().__init__(timeout, fake_mode)
+        from qwen_agent.tools.python_executor import PythonExecutor
+        self.python_executor = PythonExecutor()
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.PYTHON
+
+    @property
+    def description(self) -> ToolDescription:
+        return ToolDescription(
+            name="qwen_python_executor",
+            description="执行Python代码，支持变量计算、数据处理、算法实现等",
+            parameters={
+                "code": "要执行的Python代码字符串"
+            },
+            parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
+            example="<python>print('Hello World')</python>"
+        )
+    
+    def parse_parameters(self, text: str) -> Dict[str, Any]:
+        """从<python>标记中提取Python代码"""
+        pattern = r"<python>(.*?)</python>"
+        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        
+        if match:
+            code = match.group(1).strip()
+            logger.info(f"📝 Extracted Python code: {code[:100]}...")
+            return {"code": code}
+        else:
+            logger.warning("⚠️ No <python> tag found")
+            return {"code": ""}
+    
+    async def execute(self, parameters: Dict[str, Any]) -> str:
+        """执行Python代码"""
+        return self.python_executor.apply(parameters["code"])
+   
+
 class PythonTool(BaseTool):
     """Python代码执行工具"""
     
@@ -122,11 +168,11 @@ class PythonTool(BaseTool):
             # 在沙箱中执行
             result = await self._execute_in_sandbox(code)
             logger.info(f"✅ Python execution completed: {result[:100]}...")
-            return result
+            return result, DONE
             
         except Exception as e:
             logger.error(f"❌ Python execution error: {e}")
-            return f"Error: {str(e)}"
+            return f"Error: {str(e)}", ERROR
     
     def _is_safe_code(self, code: str) -> bool:
         """检查代码是否安全"""
@@ -253,10 +299,10 @@ class CalculatorTool(BaseTool):
             
             # 使用eval计算（在受控环境中）
             result = eval(expression)
-            return str(result)
+            return str(result), DONE
             
         except Exception as e:
-            return f"Error: {str(e)}"
+            return f"Error: {str(e)}", ERROR
 
 
 class ToolRegistry:
@@ -264,13 +310,13 @@ class ToolRegistry:
     
     def __init__(self, timeout: int = 30, fake_mode: bool = False):
         self.tools = {
-            ToolType.PYTHON: PythonTool(timeout, fake_mode),
-            # ToolType.CALCULATOR: CalculatorTool(timeout, fake_mode),
+            ToolType.PYTHON: QwenPythonTool(timeout, fake_mode),
+            ToolType.CALCULATOR: CalculatorTool(timeout, fake_mode),
         }
         # 工具标记映射
         self.tool_markers = {
             ToolType.PYTHON: ("<python>", "</python>"),
-            # ToolType.CALCULATOR: ("<calculator>", "</calculator>"),
+            ToolType.CALCULATOR: ("<calculator>", "</calculator>"),
         }
     
     def get_tool(self, tool_type: ToolType) -> Optional[BaseTool]:
@@ -447,13 +493,13 @@ class ToolManager:
             return f"Error: Failed to parse parameters - {str(e)}"
         
         # 4. 执行工具
-        try:
-            result = await tool.execute(parameters)
-            logger.info(f"✅ Tool execution completed: {result[:100]}...")
+        result, status = await tool.execute(parameters)
+        if status == DONE:
+            logger.info(f"✅ Tool execution completed: {result}")
             return result
-        except Exception as e:
-            logger.error(f"❌ Tool execution error: {e}")
-            return f"Error: Tool execution failed - {str(e)}"
+        else:
+            logger.error(f"❌ Tool execution error: {result}")
+            return f"Error: Tool execution failed - {result}"
     
     def cleanup(self):
         """清理资源"""
@@ -487,7 +533,7 @@ class Calculator:
 # 使用示例
 async def main():
     """使用示例"""
-    manager = ToolManager(fake_mode=True)  # 使用假模式进行测试
+    manager = ToolManager(fake_mode=False)  # 使用假模式进行测试
     
     # 获取工具描述
     print("=== 工具描述 ===")
