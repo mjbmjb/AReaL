@@ -25,7 +25,7 @@ SYSTEM_PROMPT = """
 You are a helpful assistant that can use tools to help the user.
 You can use the following tools:
 {tool_descriptions}
-When you invoke a tool in your response, you will immediately receive the answer and it will be placed within the <tool_result></tool_result> tags. Depending on the parameters you provide for the invocation, the tool invocation may fail. You can invoke the tool multiple times in your response.
+When you invoke a tool in your response, the tool's output will be immediately obtained and placed within the <tool_result></tool_result> tags. Then, you continue answering based on the tool's output. Depending on the parameters you provide for the invocation, the tool's invocation may fail. You can invoke the tool multiple times in your response.
 You should use the tools to help the user to solve the problem whenever possible.
 """
 
