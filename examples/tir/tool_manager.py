@@ -94,7 +94,7 @@ class QwenPythonTool(BaseTool):
                 "code": "要执行的Python代码字符串"
             },
             parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
-            example="<python>print('Hello World')</python>"
+            example="<python>a=1\nb=1\nprint(f'The a+b result is \{a+b\}')</python>"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
@@ -134,7 +134,7 @@ class PythonTool(BaseTool):
                 "code": "要执行的Python代码字符串"
             },
             parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
-            example="<python>print('Hello World')</python>"
+            example="<python>a=1\nb=1\nprint(f'The a+b result is \{a+b\}')</python>"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:

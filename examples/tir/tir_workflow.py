@@ -61,7 +61,7 @@ class TIRWorkflow(RolloutWorkflow):
     
     @staticmethod
     def _process_tool_result(tool_result: str) -> str:
-        return f"<tool_result> {tool_result} </tool_result>"
+        return f"\n<tool_result> {tool_result} </tool_result>"
     
     async def arun_episode(self, engine: InferenceEngine, data: Dict[str, Any]) -> TensorDict:
         """运行一个完整的TIR推理episode"""
@@ -139,10 +139,6 @@ class TIRWorkflow(RolloutWorkflow):
                 tool_call_count += 1  # 增加工具调用计数
                 tool_results = await self._execute_tools(completions_str)
                 tool_results = self._process_tool_result(tool_results)
-                # 如果运行失败，则跳过
-                if not tool_results:
-                    logger.error("❌ Tool execution failed")
-                    continue
                 # append tool_response_ids
                 encoding=self.tokenizer(tool_results, add_special_tokens=False, return_offsets_mapping=True)
                 tool_rsp_token_ids=encoding['input_ids']
@@ -167,6 +163,7 @@ class TIRWorkflow(RolloutWorkflow):
             completions_str,
             prompt_ids,
             output_ids,
+            tool_using = has_tool,
             **data
         )
         logger.info(f"💰 Final reward: {reward}")
