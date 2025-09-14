@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import re
 import uuid
 from typing import Dict, List, Optional, Any
@@ -24,6 +25,7 @@ SYSTEM_PROMPT = """
 You are a helpful assistant that can use tools to help the user.
 You can use the following tools:
 {tool_descriptions}
+When you invoke a tool in your response, you will immediately receive the answer and it will be placed within the <tool_result></tool_result> tags. Depending on the parameters you provide for the invocation, the tool invocation may fail. You can invoke the tool multiple times in your response.
 You should use the tools to help the user to solve the problem whenever possible.
 """
 
@@ -56,6 +58,10 @@ class TIRWorkflow(RolloutWorkflow):
         self.end_markers = self.tool_manager.get_all_end_markers()
 
         logger.info(f"start markers: {self.start_markers}, end markers {self.end_markers}")
+    
+    @staticmethod
+    def _process_tool_result(tool_result: str) -> str:
+        return f"<tool_result> {tool_result} </tool_result>"
     
     async def arun_episode(self, engine: InferenceEngine, data: Dict[str, Any]) -> TensorDict:
         """运行一个完整的TIR推理episode"""
@@ -91,20 +97,22 @@ class TIRWorkflow(RolloutWorkflow):
         
         return concat_padded_tensors(results)
 
-    async def _multi_round_response(self, engine, input_ids, data):
+    async def _multi_round_response(self, engine, prompt_ids, data):
         seq = []
         output_ids = []
         logprobs = []
         loss_mask = []
         versions = []
-        prompt_str = self.tokenizer.decode(input_ids)
+        prompt_str = self.tokenizer.decode(prompt_ids)
+        context_ids = copy.deepcopy(prompt_ids)
         completions_str = ""
+        has_tool = False
         
         # 多轮推理循环
         for turn in range(self.max_turns):
             logger.info(f"🔄 TIR Turn {turn + 1}/{self.max_turns}")            
             # 生成响应
-            resp, stop_reason = await self._generate_response(engine, input_ids)
+            resp, stop_reason = await self._generate_response(engine, context_ids)
             logger.info(f"stop reason {stop_reason}")
 
             if turn == 0:
@@ -114,6 +122,7 @@ class TIRWorkflow(RolloutWorkflow):
                 loss_mask = [0] * resp.input_len + [1] * resp.output_len
                 versions = [-1] * resp.input_len + resp.output_versions
             else:
+                context_ids.extend(resp.output_tokens)
                 seq.extend(resp.output_tokens)
                 logprobs.extend(resp.output_logprobs)
                 loss_mask.extend([1] * resp.output_len)
@@ -126,7 +135,9 @@ class TIRWorkflow(RolloutWorkflow):
             
             # 如果检测到工具调用，执行工具调用
             if stop_reason == "tool_call":
+                has_tool = True
                 tool_results = await self._execute_tools(completions_str)
+                tool_results = self._process_tool_result(tool_results)
                 # 如果运行失败，则跳过
                 if not tool_results:
                     logger.error("❌ Tool execution failed")
@@ -136,6 +147,7 @@ class TIRWorkflow(RolloutWorkflow):
                 tool_rsp_token_ids=encoding['input_ids']
                 # 拼接到seq上
                 # 构建tool mask
+                context_ids.extend(tool_rsp_token_ids)
                 seq.extend(tool_rsp_token_ids)
                 logprobs.extend([0.0] * len(tool_rsp_token_ids))
                 loss_mask.extend([0] * len(tool_rsp_token_ids))
@@ -145,11 +157,14 @@ class TIRWorkflow(RolloutWorkflow):
                 # 生成结束
                 break
         
+        if has_tool:
+            logger.info(f"all seq {self.tokenizer.decode(seq)}")
+
         logger.info("🎯 Calculating reward...")
         reward = await self.async_reward_fn(
             prompt_str,
             completions_str,
-            input_ids,
+            prompt_ids,
             output_ids,
             **data
         )
@@ -184,11 +199,8 @@ class TIRWorkflow(RolloutWorkflow):
             tokenizer=self.tokenizer,
         )
         
-        logger.debug("🚀 Calling engine.agenerate")
         resp = await engine.agenerate(req)
         response_text = self.tokenizer.decode(resp.output_tokens)
-        logger.debug(f"📝 Initial response: {response_text[-100:]}...")
-
         stop_reason = self.post_process_stop_reason(response_text, resp.stop_reason)
 
         return resp, stop_reason

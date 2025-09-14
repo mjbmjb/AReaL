@@ -288,7 +288,7 @@ class CalculatorTool(BaseTool):
         """执行数学计算"""
         expression = parameters.get("expression", "")
         if not expression:
-            return "Error: No expression provided"
+            return "Error: No expression provided", ERROR
         
         if self.fake_mode:
             logger.info(f"🧮 [FAKE] Executing calculator: {expression}")
@@ -298,7 +298,7 @@ class CalculatorTool(BaseTool):
             # 简单的数学表达式计算
             safe_pattern = r'^[0-9+\-*/().\s]+$'
             if not re.match(safe_pattern, expression):
-                return "Error: Invalid expression"
+                return "Error: Invalid expression", ERROR
             
             # 使用eval计算（在受控环境中）
             result = eval(expression)
