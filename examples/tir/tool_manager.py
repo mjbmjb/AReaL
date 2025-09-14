@@ -65,7 +65,7 @@ class BaseTool(ABC):
         pass
     
     @abstractmethod
-    async def execute(self, parameters: Dict[str, Any]) -> str:
+    def execute(self, parameters: Dict[str, Any]) -> str:
         """执行工具"""
         pass
 
@@ -107,12 +107,24 @@ class QwenPythonTool(BaseTool):
             logger.warning("⚠️ No <python> tag found")
             return {"code": ""}
     
-    async def execute(self, parameters: Dict[str, Any]) -> str:
+    def execute(self, parameters: Dict[str, Any]) -> str:
         """执行Python代码"""
-        # 在异步上下文中运行同步代码
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, self.python_executor.apply, parameters["code"])
-        return result
+        code = parameters.get("code", "")
+        if not code:
+            return "Error: No code provided", False
+        
+        if self.fake_mode:
+            logger.info(f"🐍 [FAKE] Executing Python code: {code[:100]}...")
+            return "dummy python output", True
+        
+        try:
+            # 直接调用apply，避免在异步环境中使用ProcessPool
+            result = self.python_executor.apply(code)
+            logger.info(f"✅ Python execution completed: {str(result)[:100]}...")
+            return str(result), True
+        except Exception as e:
+            logger.error(f"❌ Python execution error: {e}")
+            return f"Error: {str(e)}", False
    
 
 class PythonTool(BaseTool):
@@ -131,7 +143,7 @@ class PythonTool(BaseTool):
                 "code": "要执行的Python代码字符串"
             },
             parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
-            example="<python>\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n</python>"
+            example="<python>\na=1\nb=1\nprint(f'The a+b result is {a+b\}')\n</python>"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
@@ -147,7 +159,7 @@ class PythonTool(BaseTool):
             logger.warning("⚠️ No <python> tag found")
             return {"code": ""}
     
-    async def execute(self, parameters: Dict[str, Any]) -> str:
+    def execute(self, parameters: Dict[str, Any]) -> str:
         """执行Python代码"""
         code = parameters.get("code", "")
         if not code:
@@ -166,7 +178,7 @@ class PythonTool(BaseTool):
                 return "Error: Unsafe code detected"
             
             # 在沙箱中执行
-            result = await self._execute_in_sandbox(code)
+            result = self._execute_in_sandbox(code)
             logger.info(f"✅ Python execution completed: {result[:100]}...")
             return result, True
             
@@ -281,7 +293,7 @@ class CalculatorTool(BaseTool):
             logger.warning("⚠️ No <calculator> tag found")
             return {"expression": ""}
     
-    async def execute(self, parameters: Dict[str, Any]) -> str:
+    def execute(self, parameters: Dict[str, Any]) -> str:
         """执行数学计算"""
         expression = parameters.get("expression", "")
         if not expression:
@@ -289,7 +301,7 @@ class CalculatorTool(BaseTool):
         
         if self.fake_mode:
             logger.info(f"🧮 [FAKE] Executing calculator: {expression}")
-            return "dummy calculator output"
+            return "dummy calculator output", True
         
         try:
             # 简单的数学表达式计算
@@ -470,19 +482,19 @@ class ToolManager:
         """
         return self.registry.get_all_markers()
     
-    async def execute_tool_call(self, text: str) -> str:
+    def execute_tool_call(self, text: str) -> str:
         """统一的工具调用接口"""
         logger.info(f"🔧 Processing tool call: {text[-100:]}...")
         
         # 1. 路由：判断需要调用哪个工具
         tool_type = self.router.route(text)
         if not tool_type:
-            return "Error: No suitable tool found for the given text"
+            return "Error: No suitable tool found for the given text", False
         
         # 2. 获取工具实例
         tool = self.registry.get_tool(tool_type)
         if not tool:
-            return f"Error: Tool {tool_type.value} not found"
+            return f"Error: Tool {tool_type.value} not found", False
         
         # 3. 解析参数
         try:
@@ -490,10 +502,10 @@ class ToolManager:
             logger.info(f"📋 Parsed parameters: {parameters}")
         except Exception as e:
             logger.error(f"❌ Parameter parsing error: {e}")
-            return f"Error: Failed to parse parameters - {str(e)}"
+            return f"Error: Failed to parse parameters - {str(e)}", False
         
         # 4. 执行工具
-        result, status = await tool.execute(parameters)
+        result, status = tool.execute(parameters)
         if status == True:
             logger.info(f"✅ Tool execution completed: {result}")
             return result, status
@@ -504,30 +516,6 @@ class ToolManager:
     def cleanup(self):
         """清理资源"""
         logger.info("🗑️ ToolManager cleanup completed")
-
-
-class PythonExecutor:
-    """Python代码执行器 - 兼容性包装器"""
-    
-    def __init__(self, timeout: int = 30):
-        self.timeout = timeout
-    
-    async def execute(self, code: str) -> str:
-        """执行Python代码"""
-        manager = ToolManager(timeout=self.timeout)
-        return await manager.execute_tool_call(f"<python>{code}</python>")
-
-
-class Calculator:
-    """基础计算器 - 兼容性包装器"""
-    
-    def __init__(self):
-        pass
-    
-    async def execute(self, expression: str) -> str:
-        """执行数学表达式"""
-        manager = ToolManager()
-        return await manager.execute_tool_call(f"<calculator>{expression}</calculator>")
 
 
 # 使用示例

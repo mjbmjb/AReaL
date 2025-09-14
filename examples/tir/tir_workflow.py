@@ -137,7 +137,7 @@ class TIRWorkflow(RolloutWorkflow):
             # 如果检测到工具调用，执行工具调用
             if stop_reason == "tool_call":
                 has_tool = True
-                tool_results, tool_status = await self._execute_tools(completions_str)
+                tool_results, tool_status = self._execute_tools(completions_str)
                 tool_call_count += 1  # 增加工具调用计数
                 tool_success_count += 1 if tool_status else 0
                 tool_results = self._process_tool_result(tool_results)
@@ -222,10 +222,9 @@ class TIRWorkflow(RolloutWorkflow):
                 return "tool_call"
         return stop_reason
     
-    async def _execute_tools(self, response: str) -> List[Dict[str, Any]]:
+    def _execute_tools(self, response: str) -> str:
         """执行工具调用"""
         logger.info("🛠️ Starting tool execution")
         # 调用execute_tool_call
-        tool_results = await self.tool_manager.execute_tool_call(response)
+        tool_results = self.tool_manager.execute_tool_call(response)
         return tool_results
-
