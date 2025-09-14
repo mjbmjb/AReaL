@@ -38,9 +38,10 @@ def gsm8k_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **k
     from areal.reward.math_parser import process_results
 
     tool_using = 0.1 if 'tool_using' in kwargs and kwargs['tool_using'] else 0
+    tool_success = 1.0 if 'tool_status' in kwargs and kwargs['tool_status'] else 0
 
     # return int(process_results(completions, answer)[0]) + tool_using
-    return tool_using
+    return tool_using + tool_success
 
 
 def main(args):

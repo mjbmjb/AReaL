@@ -108,6 +108,7 @@ class TIRWorkflow(RolloutWorkflow):
         completions_str = ""
         has_tool = False
         tool_call_count = 0
+        tool_success_count = 0
         # 多轮推理循环
         for turn in range(self.max_turns):
             logger.info(f"🔄 TIR Turn {turn + 1}/{self.max_turns}")            
@@ -136,8 +137,9 @@ class TIRWorkflow(RolloutWorkflow):
             # 如果检测到工具调用，执行工具调用
             if stop_reason == "tool_call":
                 has_tool = True
+                tool_results, tool_status = await self._execute_tools(completions_str)
                 tool_call_count += 1  # 增加工具调用计数
-                tool_results = await self._execute_tools(completions_str)
+                tool_success_count += 1 if tool_status else 0
                 tool_results = self._process_tool_result(tool_results)
                 # append tool_response_ids
                 encoding=self.tokenizer(tool_results, add_special_tokens=False, return_offsets_mapping=True)
@@ -163,7 +165,8 @@ class TIRWorkflow(RolloutWorkflow):
             completions_str,
             prompt_ids,
             output_ids,
-            tool_using = has_tool,
+            tool_using=has_tool,
+            tool_status=tool_call_count,
             **data
         )
         logger.info(f"💰 Final reward: {reward}")
@@ -171,7 +174,7 @@ class TIRWorkflow(RolloutWorkflow):
         # 记录工具调用次数到stats_tracker
         stats_tracker.get(self.rollout_stat_scope).scalar(
             tool_call_count=tool_call_count,
-            reward=reward
+            tool_success_count=tool_success_count
         )
         logger.info(f"🔧 Tool calls made: {tool_call_count}")
 

@@ -16,9 +16,6 @@ from areal.utils import logging
 logger = logging.getLogger("Tool Manager")
 
 
-DONE = 'Done'
-ERROR = 'Error'
-
 class ToolType(Enum):
     """工具类型枚举"""
     PYTHON = "python"
@@ -88,13 +85,13 @@ class QwenPythonTool(BaseTool):
     @property
     def description(self) -> ToolDescription:
         return ToolDescription(
-            name="qwen_python_executor",
+            name="python_executor",
             description="执行Python代码，支持变量计算、数据处理、算法实现等",
             parameters={
                 "code": "要执行的Python代码字符串"
             },
             parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
-            example="<python>a=1\nb=1\nprint(f'The a+b result is \{a+b\}')</python>"
+            example="<python>\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n</python>"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
@@ -134,7 +131,7 @@ class PythonTool(BaseTool):
                 "code": "要执行的Python代码字符串"
             },
             parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
-            example="<python>a=1\nb=1\nprint(f'The a+b result is \{a+b\}')</python>"
+            example="<python>\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n</python>"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
@@ -171,11 +168,11 @@ class PythonTool(BaseTool):
             # 在沙箱中执行
             result = await self._execute_in_sandbox(code)
             logger.info(f"✅ Python execution completed: {result[:100]}...")
-            return result, DONE
+            return result, True
             
         except Exception as e:
             logger.error(f"❌ Python execution error: {e}")
-            return f"Error: {str(e)}", ERROR
+            return f"Error: {str(e)}", False
     
     def _is_safe_code(self, code: str) -> bool:
         """检查代码是否安全"""
@@ -262,7 +259,7 @@ class CalculatorTool(BaseTool):
     @property
     def description(self) -> ToolDescription:
         return ToolDescription(
-            name="calculator",
+            name="python calculator",
             description="执行基础数学计算，支持加减乘除、括号等基本运算",
             parameters={
                 "expression": "数学表达式字符串"
@@ -288,7 +285,7 @@ class CalculatorTool(BaseTool):
         """执行数学计算"""
         expression = parameters.get("expression", "")
         if not expression:
-            return "Error: No expression provided", ERROR
+            return "Error: No expression provided", False
         
         if self.fake_mode:
             logger.info(f"🧮 [FAKE] Executing calculator: {expression}")
@@ -298,14 +295,14 @@ class CalculatorTool(BaseTool):
             # 简单的数学表达式计算
             safe_pattern = r'^[0-9+\-*/().\s]+$'
             if not re.match(safe_pattern, expression):
-                return "Error: Invalid expression", ERROR
+                return "Error: Invalid expression", False
             
             # 使用eval计算（在受控环境中）
             result = eval(expression)
-            return str(result), DONE
+            return str(result), True
             
         except Exception as e:
-            return f"Error: {str(e)}", ERROR
+            return f"Error: {str(e)}", False
 
 
 class ToolRegistry:
@@ -497,12 +494,12 @@ class ToolManager:
         
         # 4. 执行工具
         result, status = await tool.execute(parameters)
-        if status == DONE:
+        if status == True:
             logger.info(f"✅ Tool execution completed: {result}")
-            return result
+            return result, status
         else:
             logger.error(f"❌ Tool execution error: {result}")
-            return f"Error: Tool execution failed - {result}"
+            return f"Error: Tool execution failed - {result}", status
     
     def cleanup(self):
         """清理资源"""
