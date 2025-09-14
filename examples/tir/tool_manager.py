@@ -112,7 +112,10 @@ class QwenPythonTool(BaseTool):
     
     async def execute(self, parameters: Dict[str, Any]) -> str:
         """执行Python代码"""
-        return self.python_executor.apply(parameters["code"])
+        # 在异步上下文中运行同步代码
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, self.python_executor.apply, parameters["code"])
+        return result
    
 
 class PythonTool(BaseTool):
