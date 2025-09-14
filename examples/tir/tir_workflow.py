@@ -107,7 +107,7 @@ class TIRWorkflow(RolloutWorkflow):
         context_ids = copy.deepcopy(prompt_ids)
         completions_str = ""
         has_tool = False
-        
+        tool_call_count = 0
         # 多轮推理循环
         for turn in range(self.max_turns):
             logger.info(f"🔄 TIR Turn {turn + 1}/{self.max_turns}")            
@@ -136,6 +136,7 @@ class TIRWorkflow(RolloutWorkflow):
             # 如果检测到工具调用，执行工具调用
             if stop_reason == "tool_call":
                 has_tool = True
+                tool_call_count += 1  # 增加工具调用计数
                 tool_results = await self._execute_tools(completions_str)
                 tool_results = self._process_tool_result(tool_results)
                 # 如果运行失败，则跳过
@@ -169,6 +170,13 @@ class TIRWorkflow(RolloutWorkflow):
             **data
         )
         logger.info(f"💰 Final reward: {reward}")
+        
+        # 记录工具调用次数到stats_tracker
+        stats_tracker.get(self.rollout_stat_scope).scalar(
+            tool_call_count=tool_call_count,
+            reward=reward
+        )
+        logger.info(f"🔧 Tool calls made: {tool_call_count}")
 
         res = dict(
             input_ids=torch.tensor(seq).unsqueeze(0),
