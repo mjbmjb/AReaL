@@ -25,7 +25,7 @@ SYSTEM_PROMPT = """
 You are a helpful assistant that can use tools to help the user.
 You can use the following tools:
 {tool_descriptions}
-When you invoke a tool in your response, the tool's output will be immediately obtained and placed within the <tool_result></tool_result> tags. Then, you continue answering based on the tool's output. Depending on the parameters you provide for the invocation, the tool's invocation may fail. You can invoke the tool multiple times in your response.
+When you invoke a tool in your response, the tool's output will be immediately obtained and placed within the tool_result``` ``` tags. Then, you continue answering based on the tool's output. Depending on the parameters you provide for the invocation, the tool's invocation may fail. You can invoke the tool multiple times in your response.
 You should use the tools to help the user to solve the problem whenever possible.
 """
 
@@ -61,7 +61,7 @@ class TIRWorkflow(RolloutWorkflow):
     
     @staticmethod
     def _process_tool_result(tool_result: str) -> str:
-        return f"\n<tool_result> {tool_result} </tool_result>"
+        return f"\n```tool_result\n{tool_result}\n```\n"
     
     async def arun_episode(self, engine: InferenceEngine, data: Dict[str, Any]) -> TensorDict:
         """运行一个完整的TIR推理episode"""
@@ -159,7 +159,6 @@ class TIRWorkflow(RolloutWorkflow):
         if has_tool:
             logger.info(f"all seq {self.tokenizer.decode(seq)}")
 
-        logger.info("🎯 Calculating reward...")
         reward = await self.async_reward_fn(
             prompt_str,
             completions_str,
@@ -169,7 +168,7 @@ class TIRWorkflow(RolloutWorkflow):
             tool_status=tool_call_count,
             **data
         )
-        logger.info(f"💰 Final reward: {reward}")
+        logger.info(f"💰 Final reward: {reward} with {completions_str}")
         
         # 记录工具调用次数到stats_tracker
         stats_tracker.get(self.rollout_stat_scope).scalar(

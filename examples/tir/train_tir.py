@@ -1,6 +1,7 @@
 import itertools
 import os
 import sys
+import time
 from copy import deepcopy
 
 import torch
@@ -21,13 +22,15 @@ from areal.utils.hf_utils import load_hf_tokenizer
 from areal.utils.recover import RecoverHandler
 from areal.utils.saver import Saver
 from areal.utils.stats_logger import StatsLogger
+from areal.utils import logging
+
 
 # TIR specific imports
 from examples.tir.tir_workflow import TIRWorkflow
 from examples.tir.tool_manager import ToolManager
 from examples.tir.math_reward import MathRewardFunction
 
-
+logger = logging.getLogger("TIR Training")
 
 def tir_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
     """TIR奖励函数"""
@@ -37,11 +40,15 @@ def tir_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwa
 def gsm8k_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
     from areal.reward.math_parser import process_results
 
-    tool_using = 0.1 if 'tool_using' in kwargs and kwargs['tool_using'] else 0
-    tool_success = 1.0 if 'tool_status' in kwargs and kwargs['tool_status'] else 0
+    tool_using = 0.01 if 'tool_using' in kwargs and kwargs['tool_using'] else 0
+    tool_success = 0.05 if 'tool_status' in kwargs and kwargs['tool_status'] else 0
 
-    # return int(process_results(completions, answer)[0]) + tool_using
-    return tool_using + tool_success
+    retval, (extracted_answer, extracted_solution) = process_results(completions, answer)
+
+    logger.info(f"🔢 Answer: {extracted_answer}, Solution: {extracted_solution}. rw {retval}")
+
+    return int(retval) + tool_using + tool_success
+    # return tool_using + tool_success
 
 
 def main(args):
@@ -49,20 +56,7 @@ def main(args):
     config: GRPOConfig
 
     rank = int(os.getenv("RANK"))
-    
-    # 配置日志级别
-    import logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
-    # 设置TIR相关组件的日志级别
-    logging.getLogger("TIR workflow").setLevel(logging.INFO)
-    logging.getLogger("Tool Manager").setLevel(logging.INFO)
-    logging.getLogger("Math Reward").setLevel(logging.INFO)
-    
-    logger = logging.getLogger("TIR Training")
+
     logger.info("🚀 Starting TIR training")
     logger.info(f"📊 Configuration: {config.experiment_name}")
     logger.info(f"🤖 Model: {config.actor.path}")
@@ -275,6 +269,7 @@ def main(args):
 
         # pause inference for updating weights, save, and evaluation
         rollout.pause()
+        time.sleep(5)
 
         with stats_tracker.record_timing("update_weights"):
             if dist.get_rank() == 0:
