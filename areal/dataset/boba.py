@@ -11,7 +11,7 @@ def get_boba_rl_dataset(
     world_size: int,
     max_length: Optional[int] = None,
 ):
-    dataset = load_dataset(path=path, name="main", split=split)
+    dataset = load_dataset("json", data_files=path, split="train")
 
     def process(sample):
         messages = [
