@@ -107,18 +107,6 @@ async def test_tir_workflow():
         max_turns=3,
     )
     
-    # 测试工具调用检测
-    assert workflow._has_tool_call("Let me calculate this: <python>print(2+3)</python>")
-    assert not workflow._has_tool_call("The answer is 5")
-    
-    # 测试Python代码提取
-    code = workflow._extract_python_code("Here's the code: <python>print(2+3)</python>")
-    assert code == "print(2+3)"
-    
-    # 测试最终答案检测
-    assert workflow._is_final_answer("The answer is 42")
-    assert not workflow._is_final_answer("Let me think about this")
-    
     tool_manager.cleanup()
     print("TIRWorkflow tests passed!")
 

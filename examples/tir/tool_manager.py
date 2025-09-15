@@ -91,12 +91,12 @@ class QwenPythonTool(BaseTool):
                 "code": "要执行的Python代码字符串"
             },
             parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
-            example="<python>\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n</python>"
+            example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
-        """从<python>标记中提取Python代码"""
-        pattern = r"<python>(.*?)</python>"
+        """从```python```标记中提取Python代码"""
+        pattern = r"```python\n(.*?)\n```"
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         
         if match:
@@ -104,7 +104,7 @@ class QwenPythonTool(BaseTool):
             logger.info(f"📝 Extracted Python code: {code[:100]}...")
             return {"code": code}
         else:
-            logger.warning("⚠️ No <python> tag found")
+            logger.warning("⚠️ No ```python``` tag found")
             return {"code": ""}
     
     def execute(self, parameters: Dict[str, Any]) -> str:
@@ -143,12 +143,12 @@ class PythonTool(BaseTool):
                 "code": "要执行的Python代码字符串"
             },
             parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
-            example="<python>\na=1\nb=1\nprint(f'The a+b result is {a+b\}')\n</python>"
+            example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
-        """从<python>标记中提取Python代码"""
-        pattern = r"<python>(.*?)</python>"
+        """从```python```标记中提取Python代码"""
+        pattern = r"```python\n(.*?)\n```"
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         
         if match:
@@ -156,7 +156,7 @@ class PythonTool(BaseTool):
             logger.info(f"📝 Extracted Python code: {code[:100]}...")
             return {"code": code}
         else:
-            logger.warning("⚠️ No <python> tag found")
+            logger.warning("⚠️ No ```python``` tag found")
             return {"code": ""}
     
     def execute(self, parameters: Dict[str, Any]) -> str:
@@ -327,7 +327,7 @@ class ToolRegistry:
         }
         # 工具标记映射
         self.tool_markers = {
-            ToolType.PYTHON: ("<python>", "</python>"),
+            ToolType.PYTHON: ("```python\n", "\n```"),
             ToolType.CALCULATOR: ("<calculator>", "</calculator>"),
         }
     
@@ -395,7 +395,7 @@ class ToolRouter:
     def __init__(self, registry: ToolRegistry):
         self.registry = registry
         self.tool_markers = {
-            ToolType.PYTHON: r"<python>(.*?)</python>",
+            ToolType.PYTHON: r"```python\n(.*?)\n```",
             ToolType.CALCULATOR: r"<calculator>(.*?)</calculator>",
         }
     
@@ -462,7 +462,7 @@ class ToolManager:
         """获取所有开始标记，用于设置stop token
         
         Returns:
-            List[str]: 所有开始标记的列表，如 ['<python>', '<calculator>']
+            List[str]: 所有开始标记的列表，如 ['```python\n', '<calculator>']
         """
         return self.registry.get_all_start_markers()
     
@@ -470,7 +470,7 @@ class ToolManager:
         """获取所有结束标记，用于设置stop token
         
         Returns:
-            List[str]: 所有结束标记的列表，如 ['</python>', '</calculator>']
+            List[str]: 所有结束标记的列表，如 ['\n```', '</calculator>']
         """
         return self.registry.get_all_end_markers()
     
@@ -478,7 +478,7 @@ class ToolManager:
         """获取所有标记（开始和结束），用于设置stop token
         
         Returns:
-            List[str]: 所有标记的列表，如 ['<python>', '</python>', '<calculator>', '</calculator>']
+            List[str]: 所有标记的列表，如 ['```python\n', '\n```', '<calculator>', '</calculator>']
         """
         return self.registry.get_all_markers()
     
@@ -539,8 +539,8 @@ async def main():
     # 测试工具调用
     test_cases = [
         "<calculator>1 + 2 * 3</calculator>",
-        "<python>print('Hello World')</python>",
-        "<python>for i in range(3):\n    print(i)</python>",
+        "```python\nprint('Hello World')\n```",
+        "```python\nfor i in range(3):\n    print(i)\n```",
         "<calculator>(10 + 5) / 3</calculator>",
     ]
     

@@ -105,8 +105,8 @@ TOOL_CALL_START = "<tool_call>"
 TOOL_CALL_END = "</tool_call>"
 TOOL_RESULT_START = "<tool_result>"
 TOOL_RESULT_END = "</tool_result>"
-TOOL_PYTHON_START = "<python>"
-TOOL_PYTHON_END = "</python>"
+TOOL_PYTHON_START = "```python\n"
+TOOL_PYTHON_END = "\n```"
 ```
 
 **流式生成与工具调用检测**:
@@ -247,8 +247,8 @@ tir:
   tool_call_tokens:
     start: "<tool_call>"
     end: "</tool_call>"
-    python_start: "<python>"
-    python_end: "</python>"
+    python_start: "```python\n"
+    python_end: "\n```"
 ```
 
 ### 5. 实现步骤规划
