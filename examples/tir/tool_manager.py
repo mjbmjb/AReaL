@@ -86,11 +86,11 @@ class QwenPythonTool(BaseTool):
     def description(self) -> ToolDescription:
         return ToolDescription(
             name="python_executor",
-            description="执行Python代码，支持变量计算、数据处理、算法实现等",
+            description="Execute Python code. Supports variable calculation, data processing, algorithm implementation, etc.",
             parameters={
-                "code": "要执行的Python代码字符串"
+                "code": "The Python code string to execute"
             },
-            parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
+            parameter_prompt="Please provide the Python code to execute. Supports variable calculation, data processing, algorithm implementation, etc.",
             example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```"
         )
     
@@ -272,11 +272,11 @@ class CalculatorTool(BaseTool):
     def description(self) -> ToolDescription:
         return ToolDescription(
             name="python calculator",
-            description="执行基础数学计算，支持加减乘除、括号等基本运算",
+            description="Perform basic mathematical calculations, supporting addition, subtraction, multiplication, division, and parentheses.",
             parameters={
-                "expression": "数学表达式字符串"
+                "expression": "Mathematical expression string"
             },
-            parameter_prompt="请提供数学表达式，支持加减乘除、括号等基本运算",
+            parameter_prompt="Please provide a mathematical expression. Supports addition, subtraction, multiplication, division, and parentheses.",
             example="<calculator>1 + 2 * 3</calculator>"
         )
     
@@ -380,10 +380,10 @@ class ToolRegistry:
         
         for tool_type, tool in self.tools.items():
             desc = tool.description
-            prompt_parts.append(f"工具名称: {desc.name}")
-            prompt_parts.append(f"描述: {desc.description}")
-            prompt_parts.append(f"参数说明: {desc.parameter_prompt}")
-            prompt_parts.append(f"使用格式: {desc.example}")
+            prompt_parts.append(f"Tool Name: {desc.name}")
+            prompt_parts.append(f"Description: {desc.description}")
+            prompt_parts.append(f"Parameter Description: {desc.parameter_prompt}")
+            prompt_parts.append(f"Usage Example: {desc.example}")
             prompt_parts.append("---")
         
         return "\n".join(prompt_parts)
