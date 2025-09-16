@@ -122,6 +122,9 @@ class TIRWorkflow(RolloutWorkflow):
         stop_reason = None
         # 多轮推理循环
         for turn in range(self.max_turns):
+            if len(context_ids) >= 4095:
+                break
+
             logger.info(f"🔄 TIR Turn {turn + 1}/{self.max_turns}")            
             # 生成响应
             resp, stop_reason = await self._generate_response(engine, context_ids)
@@ -194,7 +197,7 @@ class TIRWorkflow(RolloutWorkflow):
             tool_status=tool_call_count,
             **data
         )
-        logger.info(f"💰 Final reward: {reward} with {completions_str}")
+        logger.info(f"💰 Final reward: {reward} stop reason {stop_reason} with {completions_str}")
         
         # 记录工具调用次数到stats_tracker
         stats_tracker.get(self.rollout_stat_scope).scalar(
