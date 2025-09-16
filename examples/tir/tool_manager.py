@@ -16,6 +16,13 @@ from areal.utils import logging
 logger = logging.getLogger("Tool Manager")
 
 
+class ToolCallStatus(Enum):
+    """工具调用状态枚举"""
+    SUCCESS = "success"
+    ERROR = "error"
+    NOT_FOUND = "not_found"
+
+
 def extract_python_code(text: str) -> str:
     """从文本中提取Python代码，支持两种格式：
     1. ```python\n...\n```
@@ -134,7 +141,7 @@ class QwenPythonTool(BaseTool):
         """执行Python代码"""
         code = parameters.get("code", "")
         if not code:
-            return "Error: No code provided", False
+            return "Error: No code provided", ToolCallStatus.ERROR
         
         if self.fake_mode:
             logger.info(f"🐍 [FAKE] Executing Python code: {code[:100]}...")
@@ -147,7 +154,7 @@ class QwenPythonTool(BaseTool):
             return str(result), True
         except Exception as e:
             logger.error(f"❌ Python execution error: {e}")
-            return f"Error: {str(e)}", False
+            return f"Error: {str(e)}", ToolCallStatus.ERROR
    
 
 class PythonTool(BaseTool):
@@ -199,7 +206,7 @@ class PythonTool(BaseTool):
             
         except Exception as e:
             logger.error(f"❌ Python execution error: {e}")
-            return f"Error: {str(e)}", False
+            return f"Error: {str(e)}", ToolCallStatus.ERROR
     
     def _is_safe_code(self, code: str) -> bool:
         """检查代码是否安全"""
@@ -312,7 +319,7 @@ class CalculatorTool(BaseTool):
         """执行数学计算"""
         expression = parameters.get("expression", "")
         if not expression:
-            return "Error: No expression provided", False
+            return "Error: No expression provided", ToolCallStatus.ERROR
         
         if self.fake_mode:
             logger.info(f"🧮 [FAKE] Executing calculator: {expression}")
@@ -322,14 +329,14 @@ class CalculatorTool(BaseTool):
             # 简单的数学表达式计算
             safe_pattern = r'^[0-9+\-*/().\s]+$'
             if not re.match(safe_pattern, expression):
-                return "Error: Invalid expression", False
+                return "Error: Invalid expression", ToolCallStatus.ERROR
             
             # 使用eval计算（在受控环境中）
             result = eval(expression)
             return str(result), True
             
         except Exception as e:
-            return f"Error: {str(e)}", False
+            return f"Error: {str(e)}", ToolCallStatus.ERROR
 
 
 class ToolRegistry:
@@ -517,12 +524,12 @@ class ToolManager:
         # 1. 路由：判断需要调用哪个工具
         tool_type = self.router.route(text)
         if not tool_type:
-            return "Error: No suitable tool found for the given text", False
+            return "Error: No suitable tool found for the given text", ToolCallStatus.NOT_FOUND
         
         # 2. 获取工具实例
         tool = self.registry.get_tool(tool_type)
         if not tool:
-            return f"Error: Tool {tool_type.value} not found", False
+            return f"Error: Tool {tool_type.value} not found", ToolCallStatus.NOT_FOUND
         
         # 3. 解析参数
         try:
@@ -530,7 +537,7 @@ class ToolManager:
             logger.info(f"📋 Parsed parameters: {parameters}")
         except Exception as e:
             logger.error(f"❌ Parameter parsing error: {e}")
-            return f"Error: Failed to parse parameters - {str(e)}", False
+            return f"Error: Failed to parse parameters - {str(e)}", ToolCallStatus.ERROR
         
         # 4. 执行工具
         result, status = tool.execute(parameters)

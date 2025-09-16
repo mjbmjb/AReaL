@@ -16,7 +16,7 @@ from areal.api.workflow_api import RolloutWorkflow
 from areal.utils import logging, stats_tracker
 from areal.utils.data import concat_padded_tensors
 
-from .tool_manager import ToolManager
+from .tool_manager import ToolManager, ToolCallStatus
 from .math_reward import MathRewardFunction
 
 logger = logging.getLogger("TIR workflow")
@@ -128,16 +128,19 @@ class TIRWorkflow(RolloutWorkflow):
                 logprobs.extend(resp.output_logprobs)
                 loss_mask.extend([1] * resp.output_len)
                 versions.extend(resp.output_versions)
-
-            completions_str += self.tokenizer.decode(resp.output_tokens)
+            
+            cur_completions_str = self.tokenizer.decode(resp.output_tokens)
+            completions_str += cur_completions_str
             output_ids.extend(resp.output_tokens)
         
             logger.info(f"📤 Generated response: ..{completions_str[-100:]}")
             
             # 如果检测到工具调用，执行工具调用
             if stop_reason == "tool_call":
+                tool_results, tool_status = self._execute_tools(cur_completions_str)
+                if tool_status == ToolCallStatus.NOT_FOUND:
+                    continue
                 has_tool = True
-                tool_results, tool_status = self._execute_tools(completions_str)
                 tool_call_count += 1  # 增加工具调用计数
                 tool_success_count += 1 if tool_status else 0
                 tool_results = self._process_tool_result(tool_results)
@@ -194,7 +197,7 @@ class TIRWorkflow(RolloutWorkflow):
         gconfig = self.gconfig.new(
             n_samples=1,
             stop=[marker for marker in self.end_markers],
-            max_new_tokens=min(self.gconfig.max_new_tokens, 512)  # 限制单次生成长度
+            max_new_tokens=self.gconfig.max_new_tokens
         )
         logger.debug(f"⚙️ Generation config: max_tokens={gconfig.max_new_tokens}, stop_tokens={gconfig.stop_token_ids}")
         
