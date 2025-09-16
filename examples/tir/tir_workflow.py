@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import uuid
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
@@ -27,6 +28,8 @@ When you invoke a tool in your response, the tool's output will be immediately o
 You should use the tools to help the user to solve the problem whenever possible. 
 Please reason step by step, and put your final answer within \\boxed{{}}.
 """
+
+ANSWER = r"\boxed{.*?}"
 
 class TIRWorkflow(RolloutWorkflow):
     """Tool-Integrated Reasoning Workflow for multi-turn tool calling."""
@@ -165,7 +168,11 @@ class TIRWorkflow(RolloutWorkflow):
             else:
                 # 生成结束
                 break
-        
+
+            # 如果出现答案, 立刻截断
+            if re.search(ANSWER, cur_completions_str):
+                break
+
         if has_tool:
             logger.info(f"all seq {self.tokenizer.decode(seq)}")
 
