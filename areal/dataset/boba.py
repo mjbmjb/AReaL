@@ -17,8 +17,8 @@ def get_boba_rl_dataset(
         messages = [
             {
                 "role": "user",
-                "content": sample["prompt"].replace('<｜User｜>', '').replace('Please reason step by step, and put your final answer within \boxed{}.<｜Assistant｜><think>', '')
-                + "\nPlease put your final answer within \\boxed{}.",
+                "content": sample["prompt"].replace('<｜User｜>', '')\
+                    .replace(r'put your final answer within \boxed{}.<｜Assistant｜><think>', r'\nput your final answer within \boxed{}.')
             }
         ]
         return {"messages": messages, "answer": sample["solutions"][0]}
