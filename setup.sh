@@ -3,3 +3,4 @@ source ~/miniforge3/bin/activate
 conda create -n areal python=3.12
 conda activate areal
 bash examples/env/setup-pip-deps.sh
+pip install qwen_agent
