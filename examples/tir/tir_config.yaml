@@ -1,5 +1,5 @@
 experiment_name: tir-math-reasoning
-trial_name: trial0
+trial_name: python-torl-1
 allocation_mode: sglang.d4p1t1+d4p1t1
 cluster:
   fileroot: /tmp/areal/experiments
@@ -33,7 +33,7 @@ gconfig:
 actor:
   experiment_name: ${experiment_name}
   trial_name: ${trial_name}
-  path: Qwen/Qwen2.5-1.5B-Instruct
+  path: /home/tiger/.cache/huggingface/hub/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306
   init_from_scratch: false
   disable_dropout: true
   gradient_checkpointing: false
@@ -93,7 +93,7 @@ train_dataset:
   shuffle: true
   pin_memory: true
   num_workers: 4
-  path: openai/gsm8k
+  path: /home/tiger/AReaL/areal/dataset/torl_data/train.parquet
   type: rl
   max_length: 2048
 
@@ -102,7 +102,7 @@ valid_dataset:
   shuffle: false
   pin_memory: true
   num_workers: 4
-  path: openai/gsm8k
+  path: /home/tiger/AReaL/areal/dataset/torl_data/test.parquet
   type: rl
   max_length: 2048
 
