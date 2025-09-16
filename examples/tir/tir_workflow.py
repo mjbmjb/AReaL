@@ -200,8 +200,7 @@ class TIRWorkflow(RolloutWorkflow):
         # 设置生成配置，添加工具调用停止token
         gconfig = self.gconfig.new(
             n_samples=1,
-            stop=[marker for marker in self.end_markers],
-            max_new_tokens=self.gconfig.max_new_tokens
+            stop=[marker for marker in self.end_markers]
         )
         logger.debug(f"⚙️ Generation config: max_tokens={gconfig.max_new_tokens}, stop_tokens={gconfig.stop_token_ids}")
         
