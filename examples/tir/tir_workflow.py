@@ -116,6 +116,7 @@ class TIRWorkflow(RolloutWorkflow):
         has_tool = False
         tool_call_count = 0
         tool_success_count = 0
+        stop_reason = None
         # 多轮推理循环
         for turn in range(self.max_turns):
             logger.info(f"🔄 TIR Turn {turn + 1}/{self.max_turns}")            
@@ -166,6 +167,13 @@ class TIRWorkflow(RolloutWorkflow):
                 # 生成结束
                 break
         
+        # 为base模型添加eos token
+        if stop_reason != 'length':
+            seq.append(self.tokenizer.eos_token_id)
+            logprobs.append(0.0)
+            loss_mask.append(1)
+            versions.append(-1)
+
         if has_tool:
             logger.info(f"all seq {self.tokenizer.decode(seq)}")
 
