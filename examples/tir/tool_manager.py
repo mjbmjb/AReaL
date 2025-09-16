@@ -16,6 +16,37 @@ from areal.utils import logging
 logger = logging.getLogger("Tool Manager")
 
 
+def extract_python_code(text: str) -> str:
+    """从文本中提取Python代码，支持两种格式：
+    1. ```python\n...\n```
+    2. <python>...</python>
+    
+    Args:
+        text: 包含Python代码的文本
+        
+    Returns:
+        提取的Python代码，如果未找到则返回空字符串
+    """
+    # 尝试匹配 ```python``` 格式
+    pattern1 = r"```python\n(.*?)\n```"
+    match1 = re.search(pattern1, text, re.DOTALL | re.IGNORECASE)
+    if match1:
+        code = match1.group(1).strip()
+        logger.info(f"📝 Extracted Python code from ```python``` format: {code[:100]}...")
+        return code
+    
+    # 尝试匹配 <python></python> 格式
+    pattern2 = r"<python>(.*?)</python>"
+    match2 = re.search(pattern2, text, re.DOTALL | re.IGNORECASE)
+    if match2:
+        code = match2.group(1).strip()
+        logger.info(f"📝 Extracted Python code from <python> format: {code[:100]}...")
+        return code
+    
+    logger.warning("⚠️ No Python code block found in either format")
+    return ""
+
+
 class ToolType(Enum):
     """工具类型枚举"""
     PYTHON = "python"
@@ -91,21 +122,13 @@ class QwenPythonTool(BaseTool):
                 "code": "The Python code string to execute"
             },
             parameter_prompt="Please provide the Python code to execute. Supports variable calculation, data processing, algorithm implementation, etc.",
-            example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```"
+            example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```\n或者\n<python>\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n</python>"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
-        """从```python```标记中提取Python代码"""
-        pattern = r"```python\n(.*?)\n```"
-        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-        
-        if match:
-            code = match.group(1).strip()
-            logger.info(f"📝 Extracted Python code: {code[:100]}...")
-            return {"code": code}
-        else:
-            logger.warning("⚠️ No ```python``` tag found")
-            return {"code": ""}
+        """从文本中提取Python代码，支持两种格式：```python``` 和 <python>"""
+        code = extract_python_code(text)
+        return {"code": code}
     
     def execute(self, parameters: Dict[str, Any]) -> str:
         """执行Python代码"""
@@ -143,21 +166,13 @@ class PythonTool(BaseTool):
                 "code": "要执行的Python代码字符串"
             },
             parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
-            example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```"
+            example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```\n或者\n<python>\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n</python>"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
-        """从```python```标记中提取Python代码"""
-        pattern = r"```python\n(.*?)\n```"
-        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-        
-        if match:
-            code = match.group(1).strip()
-            logger.info(f"📝 Extracted Python code: {code[:100]}...")
-            return {"code": code}
-        else:
-            logger.warning("⚠️ No ```python``` tag found")
-            return {"code": ""}
+        """从文本中提取Python代码，支持两种格式：```python``` 和 <python>"""
+        code = extract_python_code(text)
+        return {"code": code}
     
     def execute(self, parameters: Dict[str, Any]) -> str:
         """执行Python代码"""
@@ -325,10 +340,14 @@ class ToolRegistry:
             ToolType.PYTHON: QwenPythonTool(timeout, fake_mode),
             ToolType.CALCULATOR: CalculatorTool(timeout, fake_mode),
         }
-        # 工具标记映射
-        self.tool_markers = {
-            ToolType.PYTHON: ("```python\n", "\n```"),
-            ToolType.CALCULATOR: ("<calculator>", "</calculator>"),
+        # 工具标记映射 - 分别定义开始和结束标记
+        self.tool_start_markers = {
+            ToolType.PYTHON: ["```python\n", "<python>"],
+            ToolType.CALCULATOR: ["<calculator>"],
+        }
+        self.tool_end_markers = {
+            ToolType.PYTHON: ["\n```", "</python>"],
+            ToolType.CALCULATOR: ["</calculator>"],
         }
     
     def get_tool(self, tool_type: ToolType) -> Optional[BaseTool]:
@@ -339,13 +358,16 @@ class ToolRegistry:
         """获取所有工具实例"""
         return self.tools
     
-    def get_tool_markers(self) -> Dict[ToolType, tuple[str, str]]:
+    def get_tool_markers(self) -> Dict[ToolType, tuple[List[str], List[str]]]:
         """获取所有工具的标记信息
         
         Returns:
-            Dict[ToolType, tuple[str, str]]: 工具类型 -> (开始标记, 结束标记)
+            Dict[ToolType, tuple[List[str], List[str]]]: 工具类型 -> (开始标记列表, 结束标记列表)
         """
-        return self.tool_markers.copy()
+        return {
+            tool_type: (self.tool_start_markers[tool_type], self.tool_end_markers[tool_type])
+            for tool_type in self.tool_start_markers.keys()
+        }
     
     def get_all_start_markers(self) -> List[str]:
         """获取所有开始标记
@@ -353,7 +375,10 @@ class ToolRegistry:
         Returns:
             List[str]: 所有开始标记的列表
         """
-        return [markers[0] for markers in self.tool_markers.values()]
+        start_markers = []
+        for markers in self.tool_start_markers.values():
+            start_markers.extend(markers)
+        return start_markers
     
     def get_all_end_markers(self) -> List[str]:
         """获取所有结束标记
@@ -361,7 +386,10 @@ class ToolRegistry:
         Returns:
             List[str]: 所有结束标记的列表
         """
-        return [markers[1] for markers in self.tool_markers.values()]
+        end_markers = []
+        for markers in self.tool_end_markers.values():
+            end_markers.extend(markers)
+        return end_markers
     
     def get_all_markers(self) -> List[str]:
         """获取所有标记（开始和结束）
@@ -370,8 +398,8 @@ class ToolRegistry:
             List[str]: 所有标记的列表
         """
         all_markers = []
-        for start_marker, end_marker in self.tool_markers.values():
-            all_markers.extend([start_marker, end_marker])
+        all_markers.extend(self.get_all_start_markers())
+        all_markers.extend(self.get_all_end_markers())
         return all_markers
     
     def get_tool_descriptions_prompt(self) -> str:
@@ -395,7 +423,7 @@ class ToolRouter:
     def __init__(self, registry: ToolRegistry):
         self.registry = registry
         self.tool_markers = {
-            ToolType.PYTHON: r"```python\n(.*?)\n```",
+            ToolType.PYTHON: r"(?:```python\n(.*?)\n```|<python>(.*?)</python>)",
             ToolType.CALCULATOR: r"<calculator>(.*?)</calculator>",
         }
     
@@ -541,6 +569,7 @@ async def main():
         "<calculator>1 + 2 * 3</calculator>",
         "```python\nprint('Hello World')\n```",
         "```python\nfor i in range(3):\n    print(i)\n```",
+        "<python>print('Hello from <python> tag')\nfor i in range(2):\n    print(f'Count: {i}')\n</python>",
         "<calculator>(10 + 5) / 3</calculator>",
     ]
     
