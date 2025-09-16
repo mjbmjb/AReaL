@@ -81,7 +81,7 @@ ref:
 sglang:
   model_path: ${actor.path}
   random_seed: ${seed}
-  skip_tokenizer_init: true
+  skip_tokenizer_init: false
   dtype: ${actor.dtype}
   max_running_requests: null
   context_length: 32768
