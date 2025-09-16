@@ -29,6 +29,20 @@ You should use the tools to help the user to solve the problem whenever possible
 Please reason step by step, and put your final answer within \\boxed{{}}.
 """
 
+BASE_MODEL_PROMPT = """A conversation between User and Assistant. The user asks a question, and the Assistant answers it. The Assistant analyzes the given question and information in the mind, retains important relevant information, calls multiple tools to find get necessary information, and provides the user with the answer. 
+The reasoning processes are enclosed within <think> </think>.
+The available tools are:
+{tool_descriptions}
+
+Finally, the Assistant provides answer within \\boxed{{}}., i.e. \\boxed{{4}}. 
+
+User: 
+{question}
+
+Assistant:
+<think>"""
+
+
 ANSWER = r"\boxed{.*?}"
 
 class TIRWorkflow(RolloutWorkflow):
@@ -40,6 +54,7 @@ class TIRWorkflow(RolloutWorkflow):
         gconfig: GenerationHyperparameters,
         tokenizer: PreTrainedTokenizerFast,
         tool_manager: ToolManager,
+        chat_model: bool = False,
         max_turns: int = 5,
         enable_thinking: bool = False,
         rollout_stat_scope: str = "rollout",
@@ -50,6 +65,7 @@ class TIRWorkflow(RolloutWorkflow):
         self.gconfig = gconfig
         self.tokenizer = tokenizer
         self.tool_manager = tool_manager
+        self.chat_model = chat_model
         self.max_turns = max_turns
         self.enable_thinking = enable_thinking
         self.rollout_stat_scope = rollout_stat_scope
@@ -88,12 +104,16 @@ class TIRWorkflow(RolloutWorkflow):
         
         logger.info("🔧 Preparing input for generation")
         # 准备输入
-        input_ids = self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=True,
-            add_generation_prompt=True,
-            enable_thinking=self.enable_thinking,
-        )
+        if self.chat_model:
+            input_ids = self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=True,
+                add_generation_prompt=True,
+                enable_thinking=self.enable_thinking,
+            )
+        else:
+            input_ids = self.tokenizer.encode(BASE_MODEL_PROMPT.format(question=messages[1]["content"], 
+                                                                       tool_descriptions=self.tool_manager.get_tool_descriptions_prompt()), add_special_tokens=False)
         logger.info(f"📏 Input token length: {len(input_ids)}")
 
         n_samples = self.gconfig.n_samples
