@@ -27,7 +27,7 @@ def get_torl_data_rl_dataset(
     max_length: Optional[int] = None,
 ):
     # Load parquet dataset instead of json
-    dataset = load_dataset("parquet", data_files=path, split="train")
+    dataset = load_dataset("parquet", data_files=path, split=split)
 
     def process(sample):
         # Handle the prompt content - it might be a list of messages or a string
