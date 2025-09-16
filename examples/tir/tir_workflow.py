@@ -76,9 +76,12 @@ class TIRWorkflow(RolloutWorkflow):
         messages = data["messages"]
 
         # 添加system prompt，添加工具使用的prompt
-        if messages[0]["role"] == "user":
+        system_prompt = SYSTEM_PROMPT.format(tool_descriptions=self.tool_manager.get_tool_descriptions_prompt())
+        if messages[0]["role"] == "system":
+            messages[0]["content"] = system_prompt
+        else:
             messages.insert(0, {"role": "system", 
-                                "content": SYSTEM_PROMPT.format(tool_descriptions=self.tool_manager.get_tool_descriptions_prompt())})
+                                "content": system_prompt})
         
         logger.info("🔧 Preparing input for generation")
         # 准备输入

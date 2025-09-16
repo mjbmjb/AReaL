@@ -33,7 +33,7 @@ def get_torl_data_rl_dataset(
         # Handle the prompt content - it might be a list of messages or a string
         answer = sample['reward_model']['ground_truth']    
         answer = f"\\boxed{{{answer}}}"    
-        return {"messages": [sample['prompt'][1]], "answer": answer}
+        return {"messages": sample['prompt'], "answer": answer}
 
     dataset = dataset.map(process).remove_columns(["prompt", "reward_model"])
 
