@@ -17,7 +17,6 @@ from areal.utils import logging, stats_tracker
 from areal.utils.data import concat_padded_tensors
 
 from .tool_manager import ToolManager, ToolCallStatus
-from .math_reward import MathRewardFunction
 
 logger = logging.getLogger("TIR workflow")
 
@@ -35,7 +34,7 @@ class TIRWorkflow(RolloutWorkflow):
     
     def __init__(
         self,
-        reward_fn: MathRewardFunction,
+        reward_fn,
         gconfig: GenerationHyperparameters,
         tokenizer: PreTrainedTokenizerFast,
         tool_manager: ToolManager,
