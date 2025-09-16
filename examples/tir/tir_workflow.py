@@ -1,8 +1,7 @@
 import asyncio
 import copy
-import re
 import uuid
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from tensordict import TensorDict
@@ -10,13 +9,13 @@ from transformers import PreTrainedTokenizerFast
 
 from areal.api.cli_args import GenerationHyperparameters
 from areal.api.engine_api import InferenceEngine
-from areal.api.io_struct import ModelRequest
+from areal.api.io_struct import ModelRequest, ModelResponse
 from areal.api.reward_api import AsyncRewardWrapper
 from areal.api.workflow_api import RolloutWorkflow
 from areal.utils import logging, stats_tracker
 from areal.utils.data import concat_padded_tensors
 
-from .tool_manager import ToolManager, ToolCallStatus
+from .tool_manager import ToolCallStatus, ToolManager
 
 logger = logging.getLogger("TIR workflow")
 
@@ -64,7 +63,11 @@ class TIRWorkflow(RolloutWorkflow):
         return f"\n```tool_result\n{tool_result}\n```\n"
     
     async def arun_episode(self, engine: InferenceEngine, data: Dict[str, Any]) -> TensorDict:
-        """运行一个完整的TIR推理episode"""
+        """Run a complete TIR inference episode.
+        :param engine: The inference engine.
+        :param data: The input data.
+        :return: The output tensor dict.
+        """
         logger.info("🚀 Starting TIR episode")
         # logger.info(f"📝 Input data: {data.get('messages', [{}])[0].get('content', '')[:100]}...")
         # logger.info(f"🎯 Expected answer: {data.get('answer', 'N/A')}")
@@ -74,7 +77,8 @@ class TIRWorkflow(RolloutWorkflow):
 
         # 添加system prompt，添加工具使用的prompt
         if messages[0]["role"] == "user":
-            messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT.format(tool_descriptions=self.tool_manager.get_tool_descriptions_prompt())})
+            messages.insert(0, {"role": "system", 
+                                "content": SYSTEM_PROMPT.format(tool_descriptions=self.tool_manager.get_tool_descriptions_prompt())})
         
         logger.info("🔧 Preparing input for generation")
         # 准备输入
@@ -190,7 +194,7 @@ class TIRWorkflow(RolloutWorkflow):
         )
         return TensorDict(res, batch_size=[1])
 
-    async def _generate_response(self, engine: InferenceEngine, input_ids: List[int]) -> str:
+    async def _generate_response(self, engine: InferenceEngine, input_ids: list[int]) -> Tuple[ModelResponse, str]:
         """生成响应，支持工具调用检测"""
         
         # 设置生成配置，添加工具调用停止token
