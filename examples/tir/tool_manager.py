@@ -89,7 +89,7 @@ class ToolRegistry:
     
     def get_tool_descriptions_prompt(self) -> str:
         """生成工具描述的prompt文本，供外部调用"""
-        prompt_parts = ["可用工具列表：\n"]
+        prompt_parts = ["Tools List:\n"]
         
         for tool_type, tool in self.tools.items():
             desc = tool.description

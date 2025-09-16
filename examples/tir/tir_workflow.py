@@ -141,8 +141,11 @@ class TIRWorkflow(RolloutWorkflow):
         tool_success_count = 0
         stop_reason = None
         # 多轮推理循环
+        max_len = 4096
+        hit_max_len = False
         for turn in range(self.max_turns):
-            if len(context_ids) >= 4095:
+            if len(context_ids) >= max_len:
+                hit_max_len = True
                 break
 
             logger.info(f"🔄 TIR Turn {turn + 1}/{self.max_turns}")            
@@ -168,42 +171,43 @@ class TIRWorkflow(RolloutWorkflow):
             output_ids.extend(resp.output_tokens)
         
             logger.info(f"📤 Generated response: ..{completions_str[-100:]}")
+
+            if context_ids[-1] in [
+                self.tokenizer.pad_token_id,
+                self.tokenizer.eos_token_id,
+            ]:
+                break
             
             # 如果检测到工具调用，执行工具调用
-            if stop_reason == "tool_call":
-                tool_results, tool_status = self._execute_tools(cur_completions_str)
-                if tool_status == ToolCallStatus.NOT_FOUND:
-                    continue
-                has_tool = True
-                tool_call_count += 1  # 增加工具调用计数
-                tool_success_count += 1 if tool_status else 0
-                tool_results = self._process_tool_result(tool_results)
-                # append tool_response_ids
-                encoding=self.tokenizer(tool_results, add_special_tokens=False, return_offsets_mapping=True)
-                tool_rsp_token_ids=encoding['input_ids']
-                # 拼接到seq上
-                # 构建tool mask
-                context_ids.extend(tool_rsp_token_ids)
-                seq.extend(tool_rsp_token_ids)
-                logprobs.extend([0.0] * len(tool_rsp_token_ids))
-                loss_mask.extend([0] * len(tool_rsp_token_ids))
-                versions.extend([-1] * len(tool_rsp_token_ids))
-                completions_str += tool_results
-            else:
-                # 生成结束
-                break
+            tool_results, tool_status = self._execute_tools(cur_completions_str)
+            if tool_status == ToolCallStatus.NOT_FOUND:
+                continue
+            has_tool = True
+            tool_call_count += 1  # 增加工具调用计数
+            tool_success_count += 1 if tool_status else 0
+            tool_results = self._process_tool_result(tool_results)
+            # append tool_response_ids
+            encoding=self.tokenizer(tool_results, add_special_tokens=False, return_offsets_mapping=True)
+            tool_rsp_token_ids=encoding['input_ids']
+            # 拼接到seq上
+            # 构建tool mask
+            context_ids.extend(tool_rsp_token_ids)
+            seq.extend(tool_rsp_token_ids)
+            logprobs.extend([0.0] * len(tool_rsp_token_ids))
+            loss_mask.extend([0] * len(tool_rsp_token_ids))
+            versions.extend([-1] * len(tool_rsp_token_ids))
+            completions_str += tool_results
 
             # 如果出现答案, 立刻截断
             if re.search(ANSWER, cur_completions_str):
                 break
         
         # 为base模型添加eos token
-        if stop_reason != 'length':
-            seq.append(self.tokenizer.eos_token_id)
-            logprobs.append(0.0)
-            loss_mask.append(1)
-            versions.append(-1)
-
+        # if stop_reason != 'length' and seq[-1] not in [self.tokenizer.pad_token_id, self.tokenizer.eos_token_id]:
+        #     seq.append(self.tokenizer.eos_token_id)
+        #     logprobs.append(0.0)
+        #     loss_mask.append(1)
+        #     versions.append(-1)
 
         if has_tool:
             logger.info(f"all seq {self.tokenizer.decode(seq)}")
@@ -217,7 +221,7 @@ class TIRWorkflow(RolloutWorkflow):
             tool_status=tool_call_count,
             **data
         )
-        logger.info(f"💰 Final reward: {reward} stop reason {stop_reason} with {completions_str}")
+        logger.info(f"💰 Final reward: {reward} stop reason {stop_reason} hit_max_len {hit_max_len} with {completions_str}")
         
         # 记录工具调用次数到stats_tracker
         stats_tracker.get(self.rollout_stat_scope).scalar(
@@ -227,11 +231,11 @@ class TIRWorkflow(RolloutWorkflow):
         logger.info(f"🔧 Tool calls made: {tool_call_count}")
 
         res = dict(
-            input_ids=torch.tensor(seq).unsqueeze(0),
-            logprobs=torch.tensor(logprobs).unsqueeze(0),
-            loss_mask=torch.tensor(loss_mask).unsqueeze(0),
-            versions=torch.tensor(versions).unsqueeze(0),
-            attention_mask=torch.ones(len(seq), dtype=torch.bool).unsqueeze(0),
+            input_ids=torch.tensor(seq[:max_len]).unsqueeze(0),
+            logprobs=torch.tensor(logprobs[:max_len]).unsqueeze(0),
+            loss_mask=torch.tensor(loss_mask[:max_len]).unsqueeze(0),
+            versions=torch.tensor(versions[:max_len]).unsqueeze(0),
+            attention_mask=torch.ones(len(seq[:max_len]), dtype=torch.bool).unsqueeze(0),
             rewards=torch.tensor([float(reward)]),
         )
         return TensorDict(res, batch_size=[1])
@@ -255,10 +259,7 @@ class TIRWorkflow(RolloutWorkflow):
         )
         
         resp = await engine.agenerate(req)
-        response_text = self.tokenizer.decode(resp.output_tokens)
-        stop_reason = self.post_process_stop_reason(response_text, resp.stop_reason)
-
-        return resp, stop_reason
+        return resp, resp.stop_reason
     
     def post_process_stop_reason(self, text: str, stop_reason: str) -> bool:
         """检测是由于工具调用结束"""
