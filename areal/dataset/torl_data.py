@@ -27,11 +27,12 @@ def get_torl_data_rl_dataset(
     max_length: Optional[int] = None,
 ):
     # Load parquet dataset instead of json
-    dataset = load_dataset("parquet", data_files=path, split=split)
+    dataset = load_dataset("parquet", data_files=path, split='train')
 
     def process(sample):
         # Handle the prompt content - it might be a list of messages or a string
-        answer = sample['reward_model']['ground_truth']        
+        answer = sample['reward_model']['ground_truth']    
+        answer = f"\\boxed{{{answer}}}"    
         return {"messages": [sample['prompt'][1]], "answer": answer}
 
     dataset = dataset.map(process).remove_columns(["prompt", "reward_model"])

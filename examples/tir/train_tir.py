@@ -32,12 +32,6 @@ from examples.tir.tool_manager import ToolManager
 logger = logging.getLogger("TIR Training")
 
 
-def torl_data_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
-    from areal.reward.math_parser import process_results
-    format_answer = f"\\boxed{{{answer}}}"
-    return int(process_results(completions, format_answer)[0])
-
-
 def gsm8k_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
     from areal.reward.math_parser import process_results
 
