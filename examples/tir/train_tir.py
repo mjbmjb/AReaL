@@ -28,14 +28,15 @@ from areal.utils import logging
 # TIR specific imports
 from examples.tir.tir_workflow import TIRWorkflow
 from examples.tir.tool_manager import ToolManager
-from examples.tir.math_reward import MathRewardFunction
 
 logger = logging.getLogger("TIR Training")
 
-def tir_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
-    """TIR奖励函数"""
-    reward_fn = MathRewardFunction()
-    return reward_fn(prompt, completions, answer=answer, **kwargs)
+
+def torl_data_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
+    from areal.reward.math_parser import process_results
+    format_answer = f"\\boxed{{{answer}}}"
+    return int(process_results(completions, format_answer)[0])
+
 
 def gsm8k_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
     from areal.reward.math_parser import process_results

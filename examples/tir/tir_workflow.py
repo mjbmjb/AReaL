@@ -26,7 +26,8 @@ You are a helpful assistant that can use tools to help the user.
 You can use the following tools:
 {tool_descriptions}
 When you invoke a tool in your response, the tool's output will be immediately obtained and placed within the tool_result``` ``` tags. Then, you continue answering based on the tool's output. Depending on the parameters you provide for the invocation, the tool's invocation may fail. You can invoke the tool multiple times in your response.
-You should use the tools to help the user to solve the problem whenever possible.
+You should use the tools to help the user to solve the problem whenever possible. 
+Please reason step by step, and put your final answer within \\boxed{{}}.
 """
 
 class TIRWorkflow(RolloutWorkflow):
