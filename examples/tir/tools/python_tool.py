@@ -63,7 +63,7 @@ class QwenPythonTool(BaseTool):
                 "code": "The Python code string to execute"
             },
             parameter_prompt="Please provide the Python code to execute. Supports variable calculation, data processing, algorithm implementation, etc.",
-            example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```\n或者\n<python>\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n</python>"
+            example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```\n or \n<python>\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n</python>"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
