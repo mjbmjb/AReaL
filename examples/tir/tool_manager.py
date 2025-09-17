@@ -27,11 +27,11 @@ class ToolRegistry:
         }
         # 工具标记映射 - 分别定义开始和结束标记
         self.tool_start_markers = {
-            ToolType.PYTHON: ["\n```python\n", "\n<python>\n"],
+            ToolType.PYTHON: ["```python", "<python>"],
             ToolType.CALCULATOR: ["<calculator>"],
         }
         self.tool_end_markers = {
-            ToolType.PYTHON: ["\n```", "\n</python>\n"],
+            ToolType.PYTHON: ["```", "</python>"],
             ToolType.CALCULATOR: ["</calculator>"],
         }
     
@@ -108,8 +108,8 @@ class ToolRouter:
     def __init__(self, registry: ToolRegistry):
         self.registry = registry
         self.tool_markers = [
-            (ToolType.PYTHON, r"\n```python\n(.*?)\n```\n"),
-            (ToolType.PYTHON, r"\n<python>\n(.*?)\n</python>\n"),
+            (ToolType.PYTHON, r"```python(.*?)```"),
+            (ToolType.PYTHON, r"<python>(.*?)</python>"),
             (ToolType.CALCULATOR, r"<calculator>(.*?)</calculator>"),
         ]
     
@@ -120,10 +120,10 @@ class ToolRouter:
         # 检查每个工具的标记
         for tool_type, pattern in self.tool_markers:
             if re.search(pattern, text, re.DOTALL | re.IGNORECASE):
-                logger.info(f"🔀 Routed to {tool_type.value} based on marker")
+                # logger.info(f"🔀 Routed to {tool_type.value} based on marker")
                 return tool_type
         
-        logger.warning(f"⚠️ No tool marker found in text: {text[-50:]}...")
+        # logger.warning(f"⚠️ No tool marker found in text: {text[-50:]}...")
         return None
 
 
@@ -202,7 +202,7 @@ class ToolManager:
         Returns:
             Tuple[str, ToolCallStatus]: (结果, 状态)
         """
-        logger.info(f"🔧 Processing tool call: {text[-100:]}...")
+        # logger.info(f"🔧 Processing tool call: {text[-100:]}...")
         
         # 1. 路由：判断需要调用哪个工具
         tool_type = self.router.route(text)

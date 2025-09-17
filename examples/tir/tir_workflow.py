@@ -42,6 +42,7 @@ User:
 Assistant:
 <think>"""
 
+NO_TOOL_PROMPT = "A conversation between User and Assistant. The user asks a question, and the Assistant solves it.\nUser:Please integrate natural language reasoning with programs to solve the problem blow, and put your final answer within \\boxed{{}}..\n{prompt}\nAssistant:"
 
 ANSWER = r"\boxed{.*?}"
 
@@ -78,8 +79,14 @@ class TIRWorkflow(RolloutWorkflow):
         logger.info(f"start markers: {self.start_markers}, end markers {self.end_markers}")
     
     @staticmethod
-    def _process_tool_result(tool_result: str) -> str:
-        return f"\n```output\n{tool_result}\n```\n"
+    def _process_tool_result(tool_result) -> str:
+        try:
+            run_result, run_status = eval(tool_result)
+        except Exception as e:
+            run_result = tool_result
+            run_status = 'Done'
+        res = run_result if run_status == 'Done' else f"Error: {run_status}"
+        return f"\n```output\n{res}\n```\n"
     
     async def arun_episode(self, engine: InferenceEngine, data: Dict[str, Any]) -> TensorDict:
         """Run a complete TIR inference episode.
@@ -107,8 +114,9 @@ class TIRWorkflow(RolloutWorkflow):
                 enable_thinking=self.enable_thinking,
             )
         else:
-            input_ids = self.tokenizer.encode(BASE_MODEL_PROMPT.format(question=messages[1]["content"], 
-                                                                       tool_descriptions=self.tool_manager.get_tool_descriptions_prompt()), add_special_tokens=False)
+            # input_ids = self.tokenizer.encode(BASE_MODEL_PROMPT.format(question=messages[1]["content"], 
+            #                                                            tool_descriptions=self.tool_manager.get_tool_descriptions_prompt()), add_special_tokens=False)
+            input_ids = self.tokenizer.encode(NO_TOOL_PROMPT.format(prompt=messages[1]["content"]), add_special_tokens=False)
 
         n_samples = self.gconfig.n_samples
         # append conversation_history
@@ -123,39 +131,40 @@ class TIRWorkflow(RolloutWorkflow):
         loss_mask = []
         versions = []
         prompt_str = self.tokenizer.decode(prompt_ids)
-        context_ids = copy.deepcopy(prompt_ids)
         completions_str = ""
         has_tool = False
         tool_call_count = 0
         tool_success_count = 0
         stop_reason = None
         # 多轮推理循环
-        max_len = 4096
+        max_len = 3000
         hit_max_len = False
         turn = 0
         # 每个episode的状态标记：是否在等待工具开始标记
         waiting_for_tool_start = True
         tool_start_idx = -1
+
+        # 初始化seq, logprobs, loss_mask, versions
+        context_ids = copy.deepcopy(prompt_ids)
+        seq = copy.deepcopy(prompt_ids)
+        logprobs = [0.0] * len(context_ids)
+        loss_mask = [0] * len(context_ids)
+        versions = [-1] * len(context_ids)
+
         while turn <= self.max_turns:
-            if len(context_ids) >= max_len-1:
+            # logger.info(f"context_ids {len(context_ids)}")
+            if len(context_ids) >= max_len:
                 hit_max_len = True
                 break
 
             # 生成响应
             resp, stop_reason = await self._generate_response(engine, context_ids, max_len, waiting_for_tool_start)
 
-            if turn == 0:
-                # 第一轮, 后续轮次需要拼接到seq上
-                seq = resp.input_tokens + resp.output_tokens
-                logprobs = [0.0] * resp.input_len + resp.output_logprobs
-                loss_mask = [0] * resp.input_len + [1] * resp.output_len
-                versions = [-1] * resp.input_len + resp.output_versions
-            else:
-                context_ids.extend(resp.output_tokens)
-                seq.extend(resp.output_tokens)
-                logprobs.extend(resp.output_logprobs)
-                loss_mask.extend([1] * resp.output_len)
-                versions.extend(resp.output_versions)
+            context_ids.extend(resp.output_tokens)
+            seq.extend(resp.output_tokens)
+            logprobs.extend(resp.output_logprobs)
+            loss_mask.extend([1] * resp.output_len)
+            versions.extend(resp.output_versions)
             
             cur_completions_str = self.tokenizer.decode(resp.output_tokens)
             completions_str += cur_completions_str
@@ -177,7 +186,7 @@ class TIRWorkflow(RolloutWorkflow):
                 # 检查是否检测到工具开始标记
                 tool_start_marker = self._detect_tool_start_marker(cur_completions_str)
                 if tool_start_marker:
-                    logger.info(f"🔧 Detected tool start marker {tool_start_marker}, switching to end marker mode {cur_completions_str}")
+                    # logger.info(f"🔧 Detected tool start marker {tool_start_marker}, switching to end marker mode {cur_completions_str}")
                     waiting_for_tool_start = False
                     tool_start_idx = len(completions_str) - len(tool_start_marker)
                     # 继续生成到工具结束标记
@@ -185,7 +194,7 @@ class TIRWorkflow(RolloutWorkflow):
 
             # 如果检测到工具调用，执行工具调用
             if not waiting_for_tool_start and stop_reason == "stop" and tool_start_idx != -1:
-                logger.info(f"hit stop token {completions_str[tool_start_idx:]}")
+                # logger.info(f"hit stop token {completions_str[tool_start_idx:]}")
                 tool_results, tool_status = self._execute_tools(completions_str[tool_start_idx:])
                 if tool_status == ToolCallStatus.NOT_FOUND:
                     # 没匹配上, 继续生成到下一个工具结束标记
@@ -208,7 +217,7 @@ class TIRWorkflow(RolloutWorkflow):
                 
                 # 工具执行完成后，重置状态标记，准备检测下一个工具调用
                 waiting_for_tool_start = True
-                logger.info(f"🔄 Tool execution completed, reset to start marker mode tool result {tool_results}, completions_str {completions_str}")
+                # logger.info(f"🔄 Tool execution completed, reset to start marker mode tool result {tool_results}, completions_str {completions_str}")
         
         
         # 为base模型添加eos token
@@ -218,8 +227,8 @@ class TIRWorkflow(RolloutWorkflow):
         #     loss_mask.append(1)
         #     versions.append(-1)
 
-        if has_tool:
-            logger.info(f"all seq {completions_str}")
+        # if has_tool:
+        #     logger.info(f"all seq {completions_str}")
 
         reward = await self.async_reward_fn(
             prompt_str,
@@ -264,8 +273,7 @@ class TIRWorkflow(RolloutWorkflow):
         # 设置生成配置，添加工具调用停止token
         gconfig = self.gconfig.new(
             n_samples=1,
-            stop=[marker for marker in stop_markers],
-            max_new_tokens=min(self.gconfig.max_new_tokens, max_len - len(input_ids) - 1), # 相同的话会报错, 需要-1
+            stop=[marker for marker in stop_markers]
         )
         
         # 生成响应
@@ -284,7 +292,7 @@ class TIRWorkflow(RolloutWorkflow):
         if stop_reason == "stop":
             # 检测是否有工具调用结束标记
             if any(text.endswith(marker) for marker in self.end_markers):
-                logger.info(f"🔍 Detected tool call: {text[-10:]}")
+                # logger.info(f"🔍 Detected tool call: {text[-10:]}")
                 return "tool_call"
         return stop_reason
     
@@ -292,7 +300,7 @@ class TIRWorkflow(RolloutWorkflow):
         """检测文本末尾是否包含工具开始标记"""
         for marker in self.start_markers:
             if text.endswith(marker):
-                logger.info(f"🎯 Found tool start marker at end: {marker}")
+                # logger.info(f"🎯 Found tool start marker at end: {marker}")
                 return marker
         return None
     
