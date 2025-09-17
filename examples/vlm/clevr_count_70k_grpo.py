@@ -1,4 +1,3 @@
-import itertools
 import os
 import re
 import sys
@@ -15,8 +14,9 @@ from areal.api.io_struct import FinetuneSpec, StepInfo, WeightUpdateMeta
 from areal.dataset import get_custom_dataset
 from areal.engine.ppo.actor import FSDPPPOActor
 from areal.engine.sglang_remote import RemoteSGLangEngine
+from areal.platforms import current_platform
 from areal.utils import seeding, stats_tracker
-from areal.utils.data import broadcast_tensor_container
+from areal.utils.data import broadcast_tensor_container, cycle_dataloader
 from areal.utils.device import log_gpu_stats
 from areal.utils.evaluator import Evaluator
 from areal.utils.hf_utils import load_hf_processor_and_tokenizer
@@ -187,7 +187,7 @@ def main(args):
     steps_per_epoch = len(train_dataloader)
     max_steps = total_epochs * steps_per_epoch
 
-    data_generator = itertools.cycle(train_dataloader)
+    data_generator = cycle_dataloader(train_dataloader)
     for global_step in range(start_step, max_steps):
         epoch = global_step // steps_per_epoch
         step = global_step % steps_per_epoch
@@ -221,7 +221,7 @@ def main(args):
             )
         # Create barrier to synchronize all rollout processes.
         dist.barrier(device_ids=[actor.device.index])
-        torch.cuda.synchronize()
+        current_platform.synchronize()
 
         if config.actor.recompute_logprob or config.actor.use_decoupled_loss:
             with stats_tracker.record_timing("recompute_logp"):
@@ -257,7 +257,7 @@ def main(args):
             if dist.get_rank() == 0:
                 future.result()
             dist.barrier(device_ids=[actor.device.index])
-            torch.cuda.synchronize()
+            current_platform.synchronize()
 
             actor.set_version(global_step + 1)
             rollout.set_version(global_step + 1)
@@ -272,6 +272,21 @@ def main(args):
                 tokenizer=tokenizer,
                 processor=processor,
             )
+
+        with stats_tracker.record_timing("checkpoint_for_recover"):
+            recover_handler.dump(
+                actor,
+                step_info,
+                saver,
+                evaluator,
+                stats_logger,
+                train_dataloader,
+                tokenizer=tokenizer,
+                processor=processor,
+            )
+
+        dist.barrier(device_ids=[actor.device.index])
+        current_platform.synchronize()
 
         with stats_tracker.record_timing("eval"):
 
@@ -292,20 +307,8 @@ def main(args):
                 global_step,
             )
 
-        with stats_tracker.record_timing("checkpoint_for_recover"):
-            recover_handler.dump(
-                actor,
-                step_info,
-                saver,
-                evaluator,
-                stats_logger,
-                train_dataloader,
-                tokenizer=tokenizer,
-                processor=processor,
-            )
-
         dist.barrier(device_ids=[actor.device.index])
-        torch.cuda.synchronize()
+        current_platform.synchronize()
 
         # Upload statistics to the logger (e.g., wandb)
         stats[0].update(
@@ -314,7 +317,7 @@ def main(args):
         stats_logger.commit(epoch, step, global_step, stats)
 
         dist.barrier(device_ids=[actor.device.index])
-        torch.cuda.synchronize()
+        current_platform.synchronize()
 
         # Resume rollout
         rollout.resume()
