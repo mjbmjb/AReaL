@@ -22,20 +22,22 @@ def extract_python_code(text: str) -> str:
     Returns:
         提取的Python代码，如果未找到则返回空字符串
     """
-    # 尝试匹配 ```python``` 格式
+    # 尝试匹配 ```python``` 格式，从后往前只匹配最后一个
     pattern1 = r"```python\n(.*?)\n```"
-    match1 = re.search(pattern1, text, re.DOTALL | re.IGNORECASE)
-    if match1:
-        code = match1.group(1).strip()
-        logger.info(f"📝 Extracted Python code from ```python``` format: {code[:100]}...")
+    matches1 = list(re.finditer(pattern1, text, re.DOTALL | re.IGNORECASE))
+    if matches1:
+        last_match = matches1[-1]
+        code = last_match.group(1).strip()
+        logger.info(f"📝 Extracted Python code from ```python``` format (last occurrence): {code[:100]}...")
         return code
     
-    # 尝试匹配 <python></python> 格式
+    # 尝试匹配 <python></python> 格式，从后往前只匹配最后一个
     pattern2 = r"<python>(.*?)</python>"
-    match2 = re.search(pattern2, text, re.DOTALL | re.IGNORECASE)
-    if match2:
-        code = match2.group(1).strip()
-        logger.info(f"📝 Extracted Python code from <python> format: {code[:100]}...")
+    matches2 = list(re.finditer(pattern2, text, re.DOTALL | re.IGNORECASE))
+    if matches2:
+        last_match = matches2[-1]
+        code = last_match.group(1).strip()
+        logger.info(f"📝 Extracted Python code from <python> format (last occurrence): {code[:100]}...")
         return code
     
     logger.warning("⚠️ No Python code block found in either format")
