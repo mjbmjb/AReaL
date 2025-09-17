@@ -148,7 +148,7 @@ class TIRWorkflow(RolloutWorkflow):
         waiting_for_tool_start = True
         tool_start_idx = -1
         while turn <= self.max_turns:
-            if len(context_ids) >= max_len:
+            if len(context_ids) >= max_len-1:
                 hit_max_len = True
                 break
 
@@ -276,10 +276,12 @@ class TIRWorkflow(RolloutWorkflow):
             logger.info("🔍 Waiting for tool end markers")
         
         # 设置生成配置
+        logger.info(f"max_new_tokens {min(self.gconfig.max_new_tokens, max_len - len(input_ids))}")
+        # 设置生成配置，添加工具调用停止token
         gconfig = self.gconfig.new(
             n_samples=1,
-            stop=stop_markers,
-            max_new_tokens=min(self.gconfig.max_new_tokens, max_len - len(input_ids)),
+            stop=[marker for marker in self.end_markers],
+            max_new_tokens=min(self.gconfig.max_new_tokens, max_len - len(input_ids) - 1), # 相同的话会报错, 需要-1
         )
         
         # 生成响应
