@@ -8,7 +8,7 @@ logger = logging.getLogger("Calculator Tool")
 
 
 class CalculatorTool(BaseTool):
-    """基础计算器工具"""
+    """Basic calculator tool"""
     
     @property
     def tool_type(self) -> ToolType:
@@ -27,7 +27,7 @@ class CalculatorTool(BaseTool):
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
-        """从<calculator>标记中提取数学表达式"""
+        """Extract mathematical expression from <calculator> tags"""
         pattern = r"<calculator>(.*?)</calculator>"
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         
@@ -40,7 +40,7 @@ class CalculatorTool(BaseTool):
             return {"expression": ""}
     
     def execute(self, parameters: Dict[str, Any]) -> Tuple[str, ToolCallStatus]:
-        """执行数学计算"""
+        """Execute mathematical calculation"""
         expression = parameters.get("expression", "")
         if not expression:
             return "Error: No expression provided", ToolCallStatus.ERROR
@@ -50,12 +50,12 @@ class CalculatorTool(BaseTool):
             return "dummy calculator output", ToolCallStatus.SUCCESS
         
         try:
-            # 简单的数学表达式计算
+            # Simple mathematical expression calculation
             safe_pattern = r'^[0-9+\-*/().\s]+$'
             if not re.match(safe_pattern, expression):
                 return "Error: Invalid expression", ToolCallStatus.ERROR
             
-            # 使用eval计算（在受控环境中）
+            # Use eval for calculation (in controlled environment)
             result = eval(expression)
             return str(result), ToolCallStatus.SUCCESS
             
