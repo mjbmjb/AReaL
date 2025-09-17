@@ -107,17 +107,18 @@ class ToolRouter:
     
     def __init__(self, registry: ToolRegistry):
         self.registry = registry
-        self.tool_markers = {
-            ToolType.PYTHON: r"(?:```python\n(.*?)\n```|<python>(.*?)</python>)",
-            ToolType.CALCULATOR: r"<calculator>(.*?)</calculator>",
-        }
+        self.tool_markers = [
+            (ToolType.PYTHON, r"```python\n(.*?)\n```"),
+            (ToolType.PYTHON, r"<python>(.*?)</python>"),
+            (ToolType.CALCULATOR, r"<calculator>(.*?)</calculator>"),
+        ]
     
     def route(self, text: str) -> Optional[ToolType]:
         """根据标记判断需要调用的工具类型"""
         text = text.strip()
         
         # 检查每个工具的标记
-        for tool_type, pattern in self.tool_markers.items():
+        for tool_type, pattern in self.tool_markers:
             if re.search(pattern, text, re.DOTALL | re.IGNORECASE):
                 logger.info(f"🔀 Routed to {tool_type.value} based on marker")
                 return tool_type

@@ -42,7 +42,7 @@ def gsm8k_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **k
 
     logger.info(f"🔢 Answer: {extracted_answer}, Solution: {extracted_solution}. rw {retval}")
 
-    return int(retval) + tool_using + tool_success
+    return int(retval)
     # return tool_using + tool_success
 
 
@@ -240,7 +240,7 @@ def main(args):
         torch.cuda.synchronize()
 
         if config.actor.recompute_logprob or config.actor.use_decoupled_loss:
-            time.sleep(5)
+            time.sleep(3)
             with stats_tracker.record_timing("recompute_logp"):
                 logp = actor.compute_logp(batch)
                 batch["prox_logp"] = logp

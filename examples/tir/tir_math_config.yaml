@@ -1,5 +1,5 @@
 experiment_name: tir-math-reasoning
-trial_name: torl-baseline-1
+trial_name: python-torl-math-base-prompt-fixturn4
 allocation_mode: sglang.d4p1t1+d4p1t1
 cluster:
   fileroot: /tmp/areal/experiments
@@ -25,14 +25,14 @@ rollout:
 gconfig:
   n_samples: 4
   min_new_tokens: 0
-  max_new_tokens: 1024
+  max_new_tokens: 512
   greedy: false
   temperature: 1.0
 
 actor:
   experiment_name: ${experiment_name}
   trial_name: ${trial_name}
-  path: /home/tiger/.cache/huggingface/hub/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306
+  path: /home/tiger/.cache/huggingface/hub/models--Qwen--Qwen2.5-Math-1.5B/snapshots/4a83ca6e4526a4f2da3aa259ec36c259f66b2ab2
   init_from_scratch: false
   disable_dropout: true
   gradient_checkpointing: false
@@ -41,8 +41,8 @@ actor:
     max_tokens_per_mb: 10240
   optimizer:
     type: adam
-    lr: 1.70e-5
-    weight_decay: 0.017
+    lr: 1.0e-5
+    weight_decay: 0.01
     beta1: 0.9
     beta2: 0.999
     eps: 1e-8
@@ -76,36 +76,36 @@ ref:
   optimizer: null
   backend: fsdp
 
-# SGLang
+# SGLang配置
 sglang:
   model_path: ${actor.path}
   random_seed: ${seed}
-  skip_tokenizer_init: true
+  skip_tokenizer_init: false
   dtype: ${actor.dtype}
   max_running_requests: null
-  context_length: 32768
+  context_length: 4096
   mem_fraction_static: 0.8
 
-# dataset
+# 数据集配置
 train_dataset:
-  batch_size: 64
+  batch_size: 32
   shuffle: true
   pin_memory: true
   num_workers: 4
   path: /home/tiger/AReaL/areal/dataset/torl_data/train.parquet
   type: rl
-  max_length: 2048
+  max_length: 500
 
 valid_dataset:
-  batch_size: 64
+  batch_size: 32
   shuffle: false
   pin_memory: true
   num_workers: 4
   path: /home/tiger/AReaL/areal/dataset/torl_data/test.parquet
   type: rl
-  max_length: 2048
+  max_length: 500
 
-# Utilities
+# 工具配置
 saver:
   experiment_name: ${experiment_name}
   trial_name: ${trial_name}

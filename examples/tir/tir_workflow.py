@@ -55,7 +55,7 @@ class TIRWorkflow(RolloutWorkflow):
         tokenizer: PreTrainedTokenizerFast,
         tool_manager: ToolManager,
         chat_model: bool = False,
-        max_turns: int = 5,
+        max_turns: int = 2,
         enable_thinking: bool = False,
         rollout_stat_scope: str = "rollout",
         dump_dir: Optional[str] = None,
@@ -143,14 +143,15 @@ class TIRWorkflow(RolloutWorkflow):
         # 多轮推理循环
         max_len = 4096
         hit_max_len = False
-        for turn in range(self.max_turns):
+        turn = 0
+        while turn <= self.max_turns:
             if len(context_ids) >= max_len:
                 hit_max_len = True
                 break
 
             logger.info(f"🔄 TIR Turn {turn + 1}/{self.max_turns}")            
             # 生成响应
-            resp, stop_reason = await self._generate_response(engine, context_ids)
+            resp, stop_reason = await self._generate_response(engine, context_ids, max_len)
             logger.info(f"stop reason {stop_reason}")
 
             if turn == 0:
@@ -172,23 +173,28 @@ class TIRWorkflow(RolloutWorkflow):
         
             logger.info(f"📤 Generated response: ..{completions_str[-100:]}")
 
+            # 结束token, 截断
             if context_ids[-1] in [
                 self.tokenizer.pad_token_id,
                 self.tokenizer.eos_token_id,
             ]:
+                break
+
+            # 如果出现答案, 立刻截断
+            if re.search(ANSWER, cur_completions_str):
                 break
             
             # 如果检测到工具调用，执行工具调用
             tool_results, tool_status = self._execute_tools(cur_completions_str)
             if tool_status == ToolCallStatus.NOT_FOUND:
                 continue
+            turn += 1
             has_tool = True
             tool_call_count += 1  # 增加工具调用计数
             tool_success_count += 1 if tool_status else 0
             tool_results = self._process_tool_result(tool_results)
             # append tool_response_ids
-            encoding=self.tokenizer(tool_results, add_special_tokens=False, return_offsets_mapping=True)
-            tool_rsp_token_ids=encoding['input_ids']
+            tool_rsp_token_ids=self.tokenizer.encode(tool_results, add_special_tokens=False)
             # 拼接到seq上
             # 构建tool mask
             context_ids.extend(tool_rsp_token_ids)
@@ -197,10 +203,6 @@ class TIRWorkflow(RolloutWorkflow):
             loss_mask.extend([0] * len(tool_rsp_token_ids))
             versions.extend([-1] * len(tool_rsp_token_ids))
             completions_str += tool_results
-
-            # 如果出现答案, 立刻截断
-            if re.search(ANSWER, cur_completions_str):
-                break
         
         # 为base模型添加eos token
         # if stop_reason != 'length' and seq[-1] not in [self.tokenizer.pad_token_id, self.tokenizer.eos_token_id]:
@@ -221,7 +223,7 @@ class TIRWorkflow(RolloutWorkflow):
             tool_status=tool_call_count,
             **data
         )
-        logger.info(f"💰 Final reward: {reward} stop reason {stop_reason} hit_max_len {hit_max_len} with {completions_str}")
+        logger.info(f"💰 Final reward: {reward} stop reason {stop_reason} hit_max_len {hit_max_len} {len(context_ids)} with {completions_str}")
         
         # 记录工具调用次数到stats_tracker
         stats_tracker.get(self.rollout_stat_scope).scalar(
@@ -240,15 +242,15 @@ class TIRWorkflow(RolloutWorkflow):
         )
         return TensorDict(res, batch_size=[1])
 
-    async def _generate_response(self, engine: InferenceEngine, input_ids: list[int]) -> Tuple[ModelResponse, str]:
+    async def _generate_response(self, engine: InferenceEngine, input_ids: list[int], max_len: int) -> Tuple[ModelResponse, str]:
         """生成响应，支持工具调用检测"""
         
         # 设置生成配置，添加工具调用停止token
         gconfig = self.gconfig.new(
             n_samples=1,
-            stop=[marker for marker in self.end_markers]
+            stop=[marker for marker in self.end_markers],
+            max_new_tokens=min(self.gconfig.max_new_tokens, max_len - len(input_ids)),
         )
-        logger.debug(f"⚙️ Generation config: max_tokens={gconfig.max_new_tokens}, stop_tokens={gconfig.stop_token_ids}")
         
         # 生成响应
         req = ModelRequest(
