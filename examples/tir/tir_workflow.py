@@ -144,6 +144,9 @@ class TIRWorkflow(RolloutWorkflow):
         max_len = 4096
         hit_max_len = False
         turn = 0
+        # 每个episode的状态标记：是否在等待工具开始标记
+        waiting_for_tool_start = True
+        tool_start_idx = -1
         while turn <= self.max_turns:
             if len(context_ids) >= max_len:
                 hit_max_len = True
@@ -151,7 +154,7 @@ class TIRWorkflow(RolloutWorkflow):
 
             logger.info(f"🔄 TIR Turn {turn + 1}/{self.max_turns}")            
             # 生成响应
-            resp, stop_reason = await self._generate_response(engine, context_ids, max_len)
+            resp, stop_reason = await self._generate_response(engine, context_ids, max_len, waiting_for_tool_start)
             logger.info(f"stop reason {stop_reason}")
 
             if turn == 0:
@@ -173,6 +176,17 @@ class TIRWorkflow(RolloutWorkflow):
         
             logger.info(f"📤 Generated response: ..{completions_str[-100:]}")
 
+            # 状态转换逻辑：检测是否遇到了工具开始标记
+            if waiting_for_tool_start and stop_reason == "stop":
+                # 检查是否检测到工具开始标记
+                tool_start_marker = self._detect_tool_start_marker(cur_completions_str)
+                if tool_start_marker:
+                    logger.info("🔧 Detected tool start marker, switching to end marker mode")
+                    waiting_for_tool_start = False
+                    tool_start_idx = len(completions_str) - len(tool_start_marker)
+                    # 继续生成到工具结束标记
+                    continue
+
             # 结束token, 截断
             if context_ids[-1] in [
                 self.tokenizer.pad_token_id,
@@ -185,24 +199,30 @@ class TIRWorkflow(RolloutWorkflow):
                 break
             
             # 如果检测到工具调用，执行工具调用
-            tool_results, tool_status = self._execute_tools(cur_completions_str)
-            if tool_status == ToolCallStatus.NOT_FOUND:
-                continue
-            turn += 1
-            has_tool = True
-            tool_call_count += 1  # 增加工具调用计数
-            tool_success_count += 1 if tool_status else 0
-            tool_results = self._process_tool_result(tool_results)
-            # append tool_response_ids
-            tool_rsp_token_ids=self.tokenizer.encode(tool_results, add_special_tokens=False)
-            # 拼接到seq上
-            # 构建tool mask
-            context_ids.extend(tool_rsp_token_ids)
-            seq.extend(tool_rsp_token_ids)
-            logprobs.extend([0.0] * len(tool_rsp_token_ids))
-            loss_mask.extend([0] * len(tool_rsp_token_ids))
-            versions.extend([-1] * len(tool_rsp_token_ids))
-            completions_str += tool_results
+            if not waiting_for_tool_start and tool_start_idx != -1:
+                tool_results, tool_status = self._execute_tools(completions_str[tool_start_idx:])
+                if tool_status == ToolCallStatus.NOT_FOUND:
+                    # 没匹配上, 继续生成到下一个工具结束标记
+                    continue
+                turn += 1
+                has_tool = True
+                tool_call_count += 1  # 增加工具调用计数
+                tool_success_count += 1 if tool_status else 0
+                tool_results = self._process_tool_result(tool_results)
+                # append tool_response_ids
+                tool_rsp_token_ids=self.tokenizer.encode(tool_results, add_special_tokens=False)
+                # 拼接到seq上
+                # 构建tool mask
+                context_ids.extend(tool_rsp_token_ids)
+                seq.extend(tool_rsp_token_ids)
+                logprobs.extend([0.0] * len(tool_rsp_token_ids))
+                loss_mask.extend([0] * len(tool_rsp_token_ids))
+                versions.extend([-1] * len(tool_rsp_token_ids))
+                completions_str += tool_results
+                
+                # 工具执行完成后，重置状态标记，准备检测下一个工具调用
+                waiting_for_tool_start = True
+                logger.info("🔄 Tool execution completed, reset to start marker mode")
         
         # 为base模型添加eos token
         # if stop_reason != 'length' and seq[-1] not in [self.tokenizer.pad_token_id, self.tokenizer.eos_token_id]:
@@ -242,13 +262,23 @@ class TIRWorkflow(RolloutWorkflow):
         )
         return TensorDict(res, batch_size=[1])
 
-    async def _generate_response(self, engine: InferenceEngine, input_ids: list[int], max_len: int) -> Tuple[ModelResponse, str]:
+    async def _generate_response(self, engine: InferenceEngine, input_ids: list[int], max_len: int, waiting_for_tool_start: bool) -> Tuple[ModelResponse, str]:
         """生成响应，支持工具调用检测"""
         
-        # 设置生成配置，添加工具调用停止token
+        # 根据状态标记选择停止条件
+        if waiting_for_tool_start:
+            # 等待工具开始标记时，使用start_markers停止
+            stop_markers = [marker for marker in self.start_markers]
+            logger.info("🔍 Waiting for tool start markers")
+        else:
+            # 已检测到工具开始，使用end_markers停止
+            stop_markers = [marker for marker in self.end_markers]
+            logger.info("🔍 Waiting for tool end markers")
+        
+        # 设置生成配置
         gconfig = self.gconfig.new(
             n_samples=1,
-            stop=[marker for marker in self.end_markers],
+            stop=stop_markers,
             max_new_tokens=min(self.gconfig.max_new_tokens, max_len - len(input_ids)),
         )
         
@@ -271,6 +301,14 @@ class TIRWorkflow(RolloutWorkflow):
                 logger.info(f"🔍 Detected tool call: {text[-10:]}")
                 return "tool_call"
         return stop_reason
+    
+    def _detect_tool_start_marker(self, text: str) -> Optional[str]:
+        """检测文本中是否包含工具开始标记"""
+        for marker in self.start_markers:
+            if marker in text:
+                logger.info(f"🎯 Found tool start marker: {marker}")
+                return marker
+        return None
     
     def _execute_tools(self, response: str) -> str:
         """执行工具调用"""
