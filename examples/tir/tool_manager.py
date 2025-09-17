@@ -27,11 +27,11 @@ class ToolRegistry:
         }
         # 工具标记映射 - 分别定义开始和结束标记
         self.tool_start_markers = {
-            ToolType.PYTHON: ["```python\n", "<python>"],
+            ToolType.PYTHON: ["\n```python\n", "\n<python>\n"],
             ToolType.CALCULATOR: ["<calculator>"],
         }
         self.tool_end_markers = {
-            ToolType.PYTHON: ["\n```", "</python>"],
+            ToolType.PYTHON: ["\n```", "\n</python>\n"],
             ToolType.CALCULATOR: ["</calculator>"],
         }
     
@@ -108,8 +108,8 @@ class ToolRouter:
     def __init__(self, registry: ToolRegistry):
         self.registry = registry
         self.tool_markers = [
-            (ToolType.PYTHON, r"```python\n(.*?)\n```"),
-            (ToolType.PYTHON, r"<python>(.*?)</python>"),
+            (ToolType.PYTHON, r"\n```python\n(.*?)\n```\n"),
+            (ToolType.PYTHON, r"\n<python>\n(.*?)\n</python>\n"),
             (ToolType.CALCULATOR, r"<calculator>(.*?)</calculator>"),
         ]
     

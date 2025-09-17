@@ -141,7 +141,7 @@ def main(args):
     
     # TIR specific configuration
     tir_config = {
-        "max_turns": 5,
+        "max_turns": 2,
         "tool_timeout": 30,
         "enable_tools": ["python", "calculator"]
     }

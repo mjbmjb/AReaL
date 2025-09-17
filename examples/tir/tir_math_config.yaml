@@ -1,5 +1,5 @@
 experiment_name: tir-math-reasoning
-trial_name: python-torl-math-base-prompt-fixturn4
+trial_name: python-torl-math-base-prompt-fixturn10
 allocation_mode: sglang.d4p1t1+d4p1t1
 cluster:
   fileroot: /tmp/areal/experiments
@@ -82,6 +82,7 @@ sglang:
   random_seed: ${seed}
   skip_tokenizer_init: false
   dtype: ${actor.dtype}
+  allow_auto_truncate: true
   max_running_requests: null
   context_length: 4096
   mem_fraction_static: 0.8
