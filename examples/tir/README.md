@@ -296,4 +296,5 @@ examples/tir/
 
 ## TODO
 - [ ] 支持异步工具调用.
+- [ ] 支持多机训练
 - [ ] 调优, 提供Intruct模型的Prompt模板
