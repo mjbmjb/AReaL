@@ -12,17 +12,17 @@ logger = logging.getLogger("Python Tool")
 
 
 def extract_python_code(text: str) -> str:
-    """从文本中提取Python代码，支持两种格式：
+    """Extract Python code from text, supporting two formats:
     1. ```python\n...\n```
     2. <python>...</python>
     
     Args:
-        text: 包含Python代码的文本
+        text: Text containing Python code
         
     Returns:
-        提取的Python代码，如果未找到则返回空字符串
+        Extracted Python code, returns empty string if not found
     """
-    # 尝试匹配 ```python``` 格式，从后往前只匹配最后一个
+    # Try to match ```python``` format, match only the last occurrence from back to front
     pattern1 = r"```python\n(.*?)\n```"
     matches1 = list(re.finditer(pattern1, text, re.DOTALL | re.IGNORECASE))
     if matches1:
@@ -31,7 +31,7 @@ def extract_python_code(text: str) -> str:
         logger.info(f"📝 Extracted Python code from ```python``` format (last occurrence): {code[:100]}...")
         return code
     
-    # 尝试匹配 <python></python> 格式，从后往前只匹配最后一个
+    # Try to match <python></python> format, match only the last occurrence from back to front
     pattern2 = r"<python>(.*?)</python>"
     matches2 = list(re.finditer(pattern2, text, re.DOTALL | re.IGNORECASE))
     if matches2:
@@ -45,7 +45,7 @@ def extract_python_code(text: str) -> str:
 
 
 class QwenPythonTool(BaseTool):
-    """Qwen Python代码执行工具"""
+    """Qwen Python code execution tool"""
 
     def __init__(self, timeout: int = 30, fake_mode: bool = False):
         super().__init__(timeout, fake_mode)
@@ -69,12 +69,12 @@ class QwenPythonTool(BaseTool):
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
-        """从文本中提取Python代码，支持两种格式：```python``` 和 <python>"""
+        """Extract Python code from text, supporting two formats: ```python``` and <python>"""
         code = extract_python_code(text)
         return {"code": code}
     
     def execute(self, parameters: Dict[str, Any]) -> Tuple[str, ToolCallStatus]:
-        """执行Python代码"""
+        """Execute Python code"""
         code = parameters.get("code", "")
         if not code:
             return "Error: No code provided", ToolCallStatus.ERROR
@@ -84,7 +84,7 @@ class QwenPythonTool(BaseTool):
             return "dummy python output", ToolCallStatus.SUCCESS
         
         try:
-            # 直接调用apply，避免在异步环境中使用ProcessPool
+            # Directly call apply to avoid using ProcessPool in async environment
             result = self.python_executor.apply(code)
             logger.info(f"✅ Python execution completed: {str(result)[:100]}...")
             return str(result), ToolCallStatus.SUCCESS
@@ -94,7 +94,7 @@ class QwenPythonTool(BaseTool):
 
 
 class PythonTool(BaseTool):
-    """Python代码执行工具（沙箱版本）"""
+    """Python code execution tool (sandbox version)"""
     
     @property
     def tool_type(self) -> ToolType:
@@ -104,21 +104,21 @@ class PythonTool(BaseTool):
     def description(self) -> ToolDescription:
         return ToolDescription(
             name="python_executor",
-            description="执行Python代码，支持变量计算、数据处理、算法实现等",
+            description="Execute Python code, supporting variable calculation, data processing, algorithm implementation, etc.",
             parameters={
-                "code": "要执行的Python代码字符串"
+                "code": "Python code string to execute"
             },
-            parameter_prompt="请提供要执行的Python代码，支持变量计算、数据处理、算法实现等",
-            example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```\n或者\n<python>\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n</python>"
+            parameter_prompt="Please provide Python code to execute, supporting variable calculation, data processing, algorithm implementation, etc.",
+            example="```python\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n```\nor\n<python>\na=1\nb=1\nprint(f'The a+b result is {a+b}')\n</python>"
         )
     
     def parse_parameters(self, text: str) -> Dict[str, Any]:
-        """从文本中提取Python代码，支持两种格式：```python``` 和 <python>"""
+        """Extract Python code from text, supporting two formats: ```python``` and <python>"""
         code = extract_python_code(text)
         return {"code": code}
     
     def execute(self, parameters: Dict[str, Any]) -> Tuple[str, ToolCallStatus]:
-        """执行Python代码"""
+        """Execute Python code"""
         code = parameters.get("code", "")
         if not code:
             return "Error: No code provided", ToolCallStatus.ERROR
@@ -130,12 +130,12 @@ class PythonTool(BaseTool):
         logger.info(f"🐍 Executing Python code: {code[:100]}...")
         
         try:
-            # 安全检查
+            # Security check
             if not self._is_safe_code(code):
                 logger.warning("⚠️ Unsafe code detected, blocking execution")
                 return "Error: Unsafe code detected", ToolCallStatus.ERROR
             
-            # 在沙箱中执行
+            # Execute in sandbox
             result = asyncio.run(self._execute_in_sandbox(code))
             logger.info(f"✅ Python execution completed: {result[:100]}...")
             return result, ToolCallStatus.SUCCESS
@@ -145,7 +145,7 @@ class PythonTool(BaseTool):
             return f"Error: {str(e)}", ToolCallStatus.ERROR
     
     def _is_safe_code(self, code: str) -> bool:
-        """检查代码是否安全"""
+        """Check if code is safe"""
         dangerous_patterns = [
             r"import\s+os",
             r"import\s+subprocess",
@@ -168,11 +168,11 @@ class PythonTool(BaseTool):
         return True
     
     async def _execute_in_sandbox(self, code: str) -> str:
-        """在沙箱中执行Python代码"""
+        """Execute Python code in sandbox"""
         sandbox_dir = tempfile.mkdtemp(prefix="python_sandbox_")
         
         try:
-            # 创建临时文件
+            # Create temporary file
             with tempfile.NamedTemporaryFile(
                 mode='w', 
                 suffix='.py', 
@@ -182,7 +182,7 @@ class PythonTool(BaseTool):
                 f.write(code)
                 temp_file = f.name
             
-            # 执行Python代码
+            # Execute Python code
             process = await asyncio.create_subprocess_exec(
                 sys.executable, temp_file,
                 stdout=asyncio.subprocess.PIPE,
@@ -195,7 +195,7 @@ class PythonTool(BaseTool):
                 timeout=self.timeout
             )
             
-            # 清理临时文件
+            # Clean up temporary file
             os.unlink(temp_file)
             
             if process.returncode == 0:
@@ -210,7 +210,7 @@ class PythonTool(BaseTool):
         except Exception as e:
             return f"Error: {str(e)}"
         finally:
-            # 清理沙箱目录
+            # Clean up sandbox directory
             try:
                 import shutil
                 if os.path.exists(sandbox_dir):

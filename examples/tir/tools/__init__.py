@@ -1,4 +1,4 @@
-# 导出基础类型和类
+# Export base types and classes
 from .base import (
     ToolCallStatus,
     ToolType,
@@ -7,7 +7,7 @@ from .base import (
     BaseTool,
 )
 
-# 导出具体工具实现
+# Export specific tool implementations
 from .python_tool import (
     QwenPythonTool,
     PythonTool,
@@ -19,16 +19,16 @@ from .calculator_tool import (
 )
 
 __all__ = [
-    # 基础类型
+    # Base types
     "ToolCallStatus",
     "ToolType", 
     "ToolCall",
     "ToolDescription",
     "BaseTool",
-    # Python工具
+    # Python tools
     "QwenPythonTool",
     "PythonTool", 
     "extract_python_code",
-    # 计算器工具
+    # Calculator tool
     "CalculatorTool",
 ]
