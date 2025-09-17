@@ -40,10 +40,7 @@ def gsm8k_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **k
 
     retval, (extracted_answer, extracted_solution) = process_results(completions, answer)
 
-    logger.info(f"🔢 Answer: {extracted_answer}, Solution: {extracted_solution}. rw {retval}")
-
     return int(retval)
-    # return tool_using + tool_success
 
 
 def main(args):
