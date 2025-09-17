@@ -209,14 +209,6 @@ class TIRWorkflow(RolloutWorkflow):
                 # 工具执行完成后，重置状态标记，准备检测下一个工具调用
                 waiting_for_tool_start = True
                 logger.info(f"🔄 Tool execution completed, reset to start marker mode tool result {tool_results}, completions_str {completions_str}")
-        
-        
-        # 为base模型添加eos token
-        # if stop_reason != 'length' and seq[-1] not in [self.tokenizer.pad_token_id, self.tokenizer.eos_token_id]:
-        #     seq.append(self.tokenizer.eos_token_id)
-        #     logprobs.append(0.0)
-        #     loss_mask.append(1)
-        #     versions.append(-1)
 
         if has_tool:
             logger.info(f"all seq {completions_str}")
@@ -255,11 +247,9 @@ class TIRWorkflow(RolloutWorkflow):
         if waiting_for_tool_start:
             # 等待工具开始标记时，使用start_markers停止
             stop_markers = [marker for marker in self.start_markers]
-            # logger.info("🔍 Waiting for tool start markers")
         else:
             # 已检测到工具开始，使用end_markers停止
             stop_markers = [marker for marker in self.end_markers]
-            # logger.info("🔍 Waiting for tool end markers")
         
         # 设置生成配置，添加工具调用停止token
         gconfig = self.gconfig.new(
@@ -278,16 +268,7 @@ class TIRWorkflow(RolloutWorkflow):
         
         resp = await engine.agenerate(req)
         return resp, resp.stop_reason
-    
-    def post_process_stop_reason(self, text: str, stop_reason: str) -> bool:
-        """检测是由于工具调用结束"""
-        if stop_reason == "stop":
-            # 检测是否有工具调用结束标记
-            if any(text.endswith(marker) for marker in self.end_markers):
-                logger.info(f"🔍 Detected tool call: {text[-10:]}")
-                return "tool_call"
-        return stop_reason
-    
+
     def _detect_tool_start_marker(self, text: str) -> Optional[str]:
         """检测文本末尾是否包含工具开始标记"""
         for marker in self.start_markers:
