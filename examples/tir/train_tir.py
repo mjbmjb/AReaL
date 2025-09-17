@@ -32,6 +32,14 @@ from examples.tir.tool_manager import ToolManager
 logger = logging.getLogger("TIR Training")
 
 
+# TIR specific configuration
+TIR_CONFIG = {
+    "max_turns": 2,
+    "tool_timeout": 30,
+    "enable_tools": ["python", "calculator"]
+}
+
+
 def gsm8k_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
     from areal.reward.math_parser import process_results
 
@@ -136,13 +144,6 @@ def main(args):
     tool_manager = ToolManager(timeout=30, fake_mode=False)
     reward_fn = gsm8k_reward_fn
     
-    # TIR specific configuration
-    tir_config = {
-        "max_turns": 2,
-        "tool_timeout": 30,
-        "enable_tools": ["python", "calculator"]
-    }
-    
     # Create TIR workflow
     if tokenizer.pad_token_id not in config.gconfig.stop_token_ids:
         config.gconfig.stop_token_ids.append(tokenizer.pad_token_id)
@@ -154,7 +155,7 @@ def main(args):
         gconfig=config.gconfig,
         tokenizer=tokenizer,
         tool_manager=tool_manager,
-        max_turns=tir_config["max_turns"],
+        max_turns=TIR_CONFIG["max_turns"],
         enable_thinking=False,
         dump_dir=os.path.join(
             StatsLogger.get_log_path(config.stats_logger), "generated"
@@ -166,7 +167,7 @@ def main(args):
         gconfig=config.gconfig.new(temperature=0.6),
         tokenizer=tokenizer,
         tool_manager=tool_manager,
-        max_turns=tir_config["max_turns"],
+        max_turns=TIR_CONFIG["max_turns"],
         enable_thinking=False,
         rollout_stat_scope="eval-rollout",
         dump_dir=os.path.join(
