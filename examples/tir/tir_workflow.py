@@ -2,7 +2,7 @@ import asyncio
 import copy
 import uuid
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 from tensordict import TensorDict
@@ -17,34 +17,9 @@ from areal.utils import logging, stats_tracker
 from areal.utils.data import concat_padded_tensors
 
 from .tool_manager import ToolCallStatus, ToolManager
+from .prompts import SYSTEM_PROMPT, BASE_MODEL_PROMPT, TORL_PROMPT, ANSWER
 
 logger = logging.getLogger("TIR workflow")
-
-SYSTEM_PROMPT = """
-You are a helpful assistant that can use tools to help the user.
-You can use the following tools:
-{tool_descriptions}
-When you invoke a tool in your response, the tool's output will be immediately obtained and placed within the output``` ``` tags. Then, you continue answering based on the tool's output. Depending on the parameters you provide for the invocation, the tool's invocation may fail. You can invoke the tool multiple times in your response.
-You should use the tools to help the user to solve the problem whenever possible. 
-Please reason step by step, and put your final answer within \\boxed{{}}.
-"""
-
-BASE_MODEL_PROMPT = """A conversation between User and Assistant. The user asks a question, and the Assistant answers it. The Assistant analyzes the given question and information in the mind, retains important relevant information, calls multiple tools to find get necessary information, and provides the user with the answer. 
-The reasoning processes are enclosed within <think> </think>.
-The available tools are:
-{tool_descriptions}
-
-Finally, the Assistant provides answer within \\boxed{{}}., i.e. \\boxed{{4}}. 
-
-User: 
-{question}
-
-Assistant:
-<think>"""
-
-NO_TOOL_PROMPT = "A conversation between User and Assistant. The user asks a question, and the Assistant solves it.\nUser:Please integrate natural language reasoning with programs to solve the problem blow, and put your final answer within \\boxed{{}}..\n{prompt}\nAssistant:"
-
-ANSWER = r"\boxed{.*?}"
 
 class TIRWorkflow(RolloutWorkflow):
     """Tool-Integrated Reasoning Workflow for multi-turn tool calling."""
@@ -114,9 +89,7 @@ class TIRWorkflow(RolloutWorkflow):
                 enable_thinking=self.enable_thinking,
             )
         else:
-            # input_ids = self.tokenizer.encode(BASE_MODEL_PROMPT.format(question=messages[1]["content"], 
-            #                                                            tool_descriptions=self.tool_manager.get_tool_descriptions_prompt()), add_special_tokens=False)
-            input_ids = self.tokenizer.encode(NO_TOOL_PROMPT.format(prompt=messages[1]["content"]), add_special_tokens=False)
+            input_ids = self.tokenizer.encode(TORL_PROMPT.format(prompt=messages[1]["content"]), add_special_tokens=False)
 
         n_samples = self.gconfig.n_samples
         # Append conversation history
@@ -125,11 +98,6 @@ class TIRWorkflow(RolloutWorkflow):
         return concat_padded_tensors(results)
 
     async def _multi_round_response(self, engine, prompt_ids, data):
-        seq = []
-        output_ids = []
-        logprobs = []
-        loss_mask = []
-        versions = []
         prompt_str = self.tokenizer.decode(prompt_ids)
         completions_str = ""
         has_tool = False
@@ -137,23 +105,21 @@ class TIRWorkflow(RolloutWorkflow):
         tool_success_count = 0
         stop_reason = None
         max_len = 3000
-        hit_max_len = False
         turn = 0
         # State flag for each episode: whether waiting for tool start marker
         waiting_for_tool_start = True
         tool_start_idx = -1
 
-        # 初始化seq, logprobs, loss_mask, versions
+        # initialize seq, logprobs, loss_mask, versions
         context_ids = copy.deepcopy(prompt_ids)
         seq = copy.deepcopy(prompt_ids)
         logprobs = [0.0] * len(context_ids)
         loss_mask = [0] * len(context_ids)
         versions = [-1] * len(context_ids)
+        output_ids = []
 
         while turn <= self.max_turns:
-            # logger.info(f"context_ids {len(context_ids)}")
             if len(context_ids) >= max_len:
-                hit_max_len = True
                 break
 
             # Generate response
@@ -185,7 +151,6 @@ class TIRWorkflow(RolloutWorkflow):
                 # Check if tool start marker is detected
                 tool_start_marker = self._detect_tool_start_marker(cur_completions_str)
                 if tool_start_marker:
-                    # logger.info(f"🔧 Detected tool start marker {tool_start_marker}, switching to end marker mode {cur_completions_str}")
                     waiting_for_tool_start = False
                     tool_start_idx = len(completions_str) - len(tool_start_marker)
                     # Continue generating until tool end marker
@@ -193,7 +158,6 @@ class TIRWorkflow(RolloutWorkflow):
 
             # If tool call is detected, execute tool call
             if not waiting_for_tool_start and stop_reason == "stop" and tool_start_idx != -1:
-                # logger.info(f"hit stop token {completions_str[tool_start_idx:]}")
                 tool_results, tool_status = self._execute_tools(completions_str[tool_start_idx:])
                 if tool_status == ToolCallStatus.NOT_FOUND:
                     # No match found, continue generating until next tool end marker
@@ -217,10 +181,6 @@ class TIRWorkflow(RolloutWorkflow):
                 
                 # After tool execution completes, reset state flag to prepare for next tool call detection
                 waiting_for_tool_start = True
-                # logger.info(f"🔄 Tool execution completed, reset to start marker mode tool result {tool_results}, completions_str {completions_str}")
-
-        # if has_tool:
-        #     logger.info(f"all seq {completions_str}")
 
         reward = await self.async_reward_fn(
             prompt_str,
@@ -231,7 +191,6 @@ class TIRWorkflow(RolloutWorkflow):
             tool_status=tool_call_count,
             **data
         )
-        logger.info(f"💰 Final reward: {reward} stop reason {stop_reason} hit_max_len {hit_max_len} {len(context_ids)} with {completions_str}")
         
         # Record tool call count to stats_tracker
         stats_tracker.get(self.rollout_stat_scope).scalar(
