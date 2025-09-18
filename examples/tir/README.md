@@ -234,18 +234,18 @@ tir:
 
 ### 4. 运行训练
 
-```bash
 
-```
+**单机多GPU训练**
 
-# 单机多GPU训练
 ```bash
 python3 -m areal.launcher.local \
   examples/tir/train_tir.py \
   --config examples/tir/tir_config.yaml
 ```
 
-TODO: 还未测试多机训练
+**多机多GPU训练**
+
+TODO
 
 ### 5. 测试脚本
 
@@ -256,21 +256,33 @@ python test_tir.py
 
 ## 训练效果
 
-### 1. 训练曲线
+### 1. 实验设置
+
+- 训练使用了[Qwen2.5-Math-1.5B](https://huggingface.co/Qwen/Qwen2.5-Math-1.5B) 作为基模型。
+- 奖励仅用结果是否正确。
+- 训练Prompt参考[TORL](https://arxiv.org/pdf/2503.23383), 仅提示模型可以用编程工具，具体可以查看`examples/tir/prompts.py`
+
+### 2. 训练曲线
+
 
 训练过程中的关键指标变化：
 
-- **奖励曲线**: [待填写] - 显示训练过程中奖励的变化趋势
+- **奖励曲线**:
 
+  **grpo_actor/task_reward**
+  <img src="figure/task_reward.png" alt="奖励曲线" width="600"/>
 
-- **损失函数**: [待填写] - PPO损失函数的收敛情况
-- **工具使用频率**: [待填写] - 智能体使用工具的频率变化
+  黄色线为TIR的reward, 可以看到相对纯GRPO训练有15%左右的正确率优势。
+
+- **工具使用频率**:
+
+  <img src="figure/tool_call_count.png" alt="奖励曲线" width="600"/>
+
+  工具调用次数和成功率变化，随训练进行，单个回答调用tool次数0.9->1.2, tool调用成功率没有明显变化。
 
 ### 2. 评估
 
-- **推理效率**: [待填写] - 平均每个问题需要的工具调用次数
-- **训练时间**: [待填写] - 完整训练所需的时间
-- **内存使用**: [待填写] - 训练过程中的内存消耗
+TODO
 
 ## 文件结构
 
