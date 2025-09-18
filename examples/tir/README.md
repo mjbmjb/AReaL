@@ -9,7 +9,7 @@
 - **多轮工具调用**: 支持在推理过程中进行多轮工具调用
 - **流式生成**: 实时检测工具调用意图，无缝集成工具执行
 - **安全执行**: 沙箱环境执行Python代码，确保系统安全
-- **强化学习训练**: 基于AReaL框架的PPO训练，端到端优化
+- **强化学习训练**: 基于AReaL框架的GRPO训练，端到端优化
 - **模块化设计**: 易于扩展新工具和功能
 
 ## 代码组成逻辑
@@ -42,9 +42,8 @@
 #### 1.4 训练脚本 (`train_tir.py`)
 - **功能**: 完整的训练流程实现
 - **特性**:
-  - 集成AReaL的PPO训练框架
+  - 集成AReaL的GRPO训练框架
   - 支持分布式训练
-  - 完整的评估和保存机制
 
 ### 2. 工具调用机制
 
@@ -52,14 +51,33 @@
 
 执行Python代码
 ```python
-a = 1
-b = 2
-print(f"The result is {a + b}")
+# Initialize the count of concave numbers
+count = 0
+
+# Iterate over all possible values for A (hundreds place)
+for A in range(2, 10):
+    # For each A, iterate over all possible values for B (tens place)
+    for B in range(0, A):
+        # For each B, iterate over all possible values for C (ones place)
+        for C in range(B + 1, A):
+            # Increment the count for each valid concave number
+            count += 1
+
+# The final count of distinct three-digit concave numbers
+print(count)
 ```
+
+```python
+output: 120
+```
+
 
 数学计算
 ```
 <calculator>1 + 2 * 3</calculator>
+```
+```python
+output: 6
 ```
 
 #### 2.2 流式生成与工具调用检测
