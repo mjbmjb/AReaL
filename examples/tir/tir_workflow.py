@@ -165,7 +165,7 @@ class TIRWorkflow(RolloutWorkflow):
                 turn += 1
                 has_tool = True
                 tool_call_count += 1  # Increment tool call count
-                if tool_status == ToolCallStatus.SUCCESS:
+                if tool_status == ToolCallStatus.SUCCESS and "Error" not in tool_results:
                     tool_success_count += 1
                 tool_results = self._process_tool_result(tool_results)
                 # Append tool response token IDs
