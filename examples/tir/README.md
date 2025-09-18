@@ -249,10 +249,7 @@ TODO
 
 ### 5. 测试脚本
 
-```bash
-# 运行测试
-python test_tir.py
-```
+TODO
 
 ## 训练效果
 
