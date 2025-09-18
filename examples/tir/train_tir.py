@@ -40,7 +40,7 @@ TIR_CONFIG = {
 }
 
 
-def gsm8k_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
+def math_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs):
     from areal.reward.math_parser import process_results
 
     tool_using = 0.01 if 'tool_using' in kwargs and kwargs['tool_using'] else 0
@@ -57,10 +57,10 @@ def main(args):
 
     rank = int(os.getenv("RANK"))
 
-    logger.info("🚀 Starting TIR training")
-    logger.info(f"📊 Configuration: {config.experiment_name}")
-    logger.info(f"🤖 Model: {config.actor.path}")
-    logger.info(f"📈 Batch size: {config.train_dataset.batch_size}")
+    logger.info("Starting TIR training")
+    logger.info(f"Configuration: {config.experiment_name}")
+    logger.info(f"Model: {config.actor.path}")
+    logger.info(f"Batch size: {config.train_dataset.batch_size}")
     
     tokenizer = load_hf_tokenizer(config.tokenizer_path)
 
@@ -142,7 +142,7 @@ def main(args):
     # Initialize TIR components with hardcoded config
     # 使用fake模式进行调试
     tool_manager = ToolManager(timeout=30, fake_mode=False)
-    reward_fn = gsm8k_reward_fn
+    reward_fn = math_reward_fn
     
     # Create TIR workflow
     if tokenizer.pad_token_id not in config.gconfig.stop_token_ids:

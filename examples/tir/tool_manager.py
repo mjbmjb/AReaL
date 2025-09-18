@@ -130,16 +130,16 @@ class FakeToolManager:
     
     def __init__(self, timeout: int = 30):
         self.timeout = timeout
-        logger.info("🎭 Initializing FakeToolManager for debugging")
+        logger.info("Initializing FakeToolManager for debugging")
         
     async def execute_python(self, code: str) -> str:
         """Execute Python code - fake version"""
-        logger.info(f"🐍 [FAKE] Executing Python code: {code[:100]}...")
+        logger.info(f"[FAKE] Executing Python code: {code[:100]}...")
         return "dummy code output"
     
     async def execute_calculator(self, expression: str) -> str:
         """Execute basic math calculation - fake version"""
-        logger.info(f"🧮 [FAKE] Executing calculator: {expression}")
+        logger.info(f"[FAKE] Executing calculator: {expression}")
         return "dummy calculator output"
     
     def cleanup(self):
@@ -156,7 +156,7 @@ class ToolManager:
         self.registry = ToolRegistry(timeout, fake_mode)
         self.router = ToolRouter(self.registry)
         
-        logger.info(f"🔧 Initialized ToolManager (fake_mode={fake_mode})")
+        logger.info(f"Initialized ToolManager (fake_mode={fake_mode})")
     
     def get_tool_descriptions_prompt(self) -> str:
         """Get tool description prompt text for external calls"""
@@ -200,7 +200,6 @@ class ToolManager:
         Returns:
             Tuple[str, ToolCallStatus]: (result, status)
         """
-        # logger.info(f"🔧 Processing tool call: {text[-100:]}...")
         
         # 1. Routing: determine which tool to call
         tool_type = self.router.route(text)
@@ -215,18 +214,18 @@ class ToolManager:
         # 3. Parse parameters
         try:
             parameters = tool.parse_parameters(text)
-            logger.info(f"📋 Parsed parameters: {parameters}")
+            logger.info(f"Parsed parameters: {parameters}")
         except Exception as e:
-            logger.error(f"❌ Parameter parsing error: {e}")
+            logger.error(f"Parameter parsing error: {e}")
             return f"Error: Failed to parse parameters - {str(e)}", ToolCallStatus.ERROR
         
         # 4. Execute tool
         result, status = tool.execute(parameters)
         if status == ToolCallStatus.SUCCESS:
-            logger.info(f"✅ Tool execution completed: {result}")
+            logger.info(f"Tool execution completed: {result}")
             return result, status
         else:
-            logger.error(f"❌ Tool execution error: {result}")
+            logger.error(f"Tool execution error: {result}")
             return f"Error: Tool execution failed - {result}", status
     
     def cleanup(self):

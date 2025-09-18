@@ -28,7 +28,7 @@ def extract_python_code(text: str) -> str:
     if matches1:
         last_match = matches1[-1]
         code = last_match.group(1).strip()
-        logger.info(f"📝 Extracted Python code from ```python``` format (last occurrence): {code[:100]}...")
+        logger.info(f"Extracted Python code from ```python``` format (last occurrence): {code[:100]}...")
         return code
     
     # Try to match <python></python> format, match only the last occurrence from back to front
@@ -37,10 +37,10 @@ def extract_python_code(text: str) -> str:
     if matches2:
         last_match = matches2[-1]
         code = last_match.group(1).strip()
-        logger.info(f"📝 Extracted Python code from <python> format (last occurrence): {code[:100]}...")
+        logger.info(f"Extracted Python code from <python> format (last occurrence): {code[:100]}...")
         return code
     
-    logger.warning("⚠️ No Python code block found in either format")
+    logger.warning("No Python code block found in either format")
     return ""
 
 
@@ -86,10 +86,10 @@ class QwenPythonTool(BaseTool):
         try:
             # Directly call apply to avoid using ProcessPool in async environment
             result = self.python_executor.apply(code)
-            logger.info(f"✅ Python execution completed: {str(result)[:100]}...")
+            logger.info(f"Python execution completed: {str(result)[:100]}...")
             return str(result), ToolCallStatus.SUCCESS
         except Exception as e:
-            logger.error(f"❌ Python execution error: {e}")
+            logger.error(f"Python execution error: {e}")
             return f"Error: {str(e)}", ToolCallStatus.ERROR
 
 
@@ -132,16 +132,16 @@ class PythonTool(BaseTool):
         try:
             # Security check
             if not self._is_safe_code(code):
-                logger.warning("⚠️ Unsafe code detected, blocking execution")
+                logger.warning("Unsafe code detected, blocking execution")
                 return "Error: Unsafe code detected", ToolCallStatus.ERROR
             
             # Execute in sandbox
             result = asyncio.run(self._execute_in_sandbox(code))
-            logger.info(f"✅ Python execution completed: {result[:100]}...")
+            logger.info(f"Python execution completed: {result[:100]}...")
             return result, ToolCallStatus.SUCCESS
             
         except Exception as e:
-            logger.error(f"❌ Python execution error: {e}")
+            logger.error(f"Python execution error: {e}")
             return f"Error: {str(e)}", ToolCallStatus.ERROR
     
     def _is_safe_code(self, code: str) -> bool:
@@ -216,4 +216,4 @@ class PythonTool(BaseTool):
                 if os.path.exists(sandbox_dir):
                     shutil.rmtree(sandbox_dir)
             except Exception as cleanup_error:
-                logger.warning(f"⚠️ Failed to cleanup sandbox: {cleanup_error}")
+                logger.warning(f"Failed to cleanup sandbox: {cleanup_error}")

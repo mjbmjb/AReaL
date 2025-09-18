@@ -33,10 +33,10 @@ class CalculatorTool(BaseTool):
         
         if match:
             expression = match.group(1).strip()
-            logger.info(f"🧮 Extracted expression: {expression}")
+            logger.info(f"Extracted expression: {expression}")
             return {"expression": expression}
         else:
-            logger.warning("⚠️ No <calculator> tag found")
+            logger.warning("No <calculator> tag found")
             return {"expression": ""}
     
     def execute(self, parameters: Dict[str, Any]) -> Tuple[str, ToolCallStatus]:
@@ -46,7 +46,7 @@ class CalculatorTool(BaseTool):
             return "Error: No expression provided", ToolCallStatus.ERROR
         
         if self.fake_mode:
-            logger.info(f"🧮 [FAKE] Executing calculator: {expression}")
+            logger.info(f"[FAKE] Executing calculator: {expression}")
             return "dummy calculator output", ToolCallStatus.SUCCESS
         
         try:

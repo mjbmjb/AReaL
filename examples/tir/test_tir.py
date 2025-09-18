@@ -140,10 +140,10 @@ async def main():
         await test_tir_workflow()
         test_data_loading()
         
-        print("\n✅ All tests passed!")
+        print("\n All tests passed!")
         
     except Exception as e:
-        print(f"\n❌ Test failed: {e}")
+        print(f"\n Test failed: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

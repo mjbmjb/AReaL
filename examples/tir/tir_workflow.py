@@ -240,7 +240,6 @@ class TIRWorkflow(RolloutWorkflow):
         """Detect if text ends with tool start marker"""
         for marker in self.start_markers:
             if text.endswith(marker):
-                # logger.info(f"🎯 Found tool start marker at end: {marker}")
                 return marker
         return None
     
