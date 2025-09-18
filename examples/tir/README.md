@@ -286,6 +286,7 @@ TODO
 - **奖励曲线**:
 
   **grpo_actor/task_reward**
+  
   <img src="figure/task_reward.png" alt="奖励曲线" width="600"/>
 
   黄色线为TIR的reward, 可以看到相对纯GRPO训练有15%左右的正确率优势。
