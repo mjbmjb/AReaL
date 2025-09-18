@@ -262,7 +262,6 @@ def main(args):
 
         # pause inference for updating weights, save, and evaluation
         rollout.pause()
-        time.sleep(5)
 
         with stats_tracker.record_timing("update_weights"):
             if dist.get_rank() == 0:

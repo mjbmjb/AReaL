@@ -118,10 +118,8 @@ class ToolRouter:
         # Check markers for each tool
         for tool_type, pattern in self.tool_markers:
             if re.search(pattern, text, re.DOTALL | re.IGNORECASE):
-                # logger.info(f"🔀 Routed to {tool_type.value} based on marker")
                 return tool_type
         
-        # logger.warning(f"⚠️ No tool marker found in text: {text[-50:]}...")
         return None
 
 
@@ -144,7 +142,7 @@ class FakeToolManager:
     
     def cleanup(self):
         """Cleanup - fake version"""
-        logger.info("🗑️ [FAKE] Cleanup completed")
+        logger.info("[FAKE] Cleanup completed")
 
 
 class ToolManager:
@@ -230,7 +228,7 @@ class ToolManager:
     
     def cleanup(self):
         """Clean up resources"""
-        logger.info("🗑️ ToolManager cleanup completed")
+        logger.info("ToolManager cleanup completed")
 
 
 # Usage example

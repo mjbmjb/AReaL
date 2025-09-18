@@ -80,7 +80,7 @@ class QwenPythonTool(BaseTool):
             return "Error: No code provided", ToolCallStatus.ERROR
         
         if self.fake_mode:
-            logger.info(f"🐍 [FAKE] Executing Python code: {code[:100]}...")
+            logger.info(f"[FAKE] Executing Python code: {code[:100]}...")
             return "dummy python output", ToolCallStatus.SUCCESS
         
         try:
@@ -124,10 +124,10 @@ class PythonTool(BaseTool):
             return "Error: No code provided", ToolCallStatus.ERROR
         
         if self.fake_mode:
-            logger.info(f"🐍 [FAKE] Executing Python code: {code[:100]}...")
+            logger.info(f"[FAKE] Executing Python code: {code[:100]}...")
             return "dummy python output", ToolCallStatus.SUCCESS
         
-        logger.info(f"🐍 Executing Python code: {code[:100]}...")
+        logger.info(f"Executing Python code: {code[:100]}...")
         
         try:
             # Security check

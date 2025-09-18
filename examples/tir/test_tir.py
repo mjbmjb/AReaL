@@ -1,8 +1,6 @@
 import asyncio
 import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 # Add the parent directory to the path so we can import TIR modules
@@ -10,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tir_workflow import TIRWorkflow
 from tool_manager import ToolManager
-from math_reward import MathRewardFunction
+from train_tir import math_reward_fn
 
 
 async def test_tool_manager():
@@ -41,48 +39,6 @@ async def test_tool_manager():
     print("ToolManager tests passed!")
 
 
-def test_math_reward():
-    """测试数学奖励函数"""
-    print("Testing MathRewardFunction...")
-    
-    reward_fn = MathRewardFunction()
-    
-    # 测试正确答案
-    reward = reward_fn("", "The answer is 42", answer="42")
-    assert reward == 1.0, f"Expected 1.0 for correct answer, got: {reward}"
-    
-    # 测试错误答案
-    reward = reward_fn("", "The answer is 41", answer="42")
-    assert reward == 0.0, f"Expected 0.0 for wrong answer, got: {reward}"
-    
-    # 测试部分匹配
-    reward = reward_fn("", "The result is 42", answer="42")
-    assert reward == 1.0, f"Expected 1.0 for partial match, got: {reward}"
-    
-    print("MathRewardFunction tests passed!")
-
-
-def test_answer_extraction():
-    """测试答案提取"""
-    print("Testing answer extraction...")
-    
-    reward_fn = MathRewardFunction()
-    
-    test_cases = [
-        ("The answer is 42", "42"),
-        ("Final answer: 25", "25"),
-        ("Result: 100", "100"),
-        ("Solution: 3.14", "3.14"),
-        ("= 17", "17"),
-    ]
-    
-    for text, expected in test_cases:
-        extracted = reward_fn._extract_answer(text)
-        assert extracted == expected, f"Expected '{expected}', got: '{extracted}' for text: '{text}'"
-    
-    print("Answer extraction tests passed!")
-
-
 async def test_tir_workflow():
     """测试TIR工作流（需要模拟engine）"""
     print("Testing TIRWorkflow...")
@@ -96,11 +52,10 @@ async def test_tir_workflow():
         tokenizer.pad_token = tokenizer.eos_token
     
     tool_manager = ToolManager()
-    reward_fn = MathRewardFunction()
     
     # 创建TIR工作流
     workflow = TIRWorkflow(
-        reward_fn=reward_fn,
+        reward_fn=math_reward_fn,
         gconfig=None,  # 这里简化，实际需要GenerationHyperparameters
         tokenizer=tokenizer,
         tool_manager=tool_manager,
@@ -135,8 +90,6 @@ async def main():
     
     try:
         await test_tool_manager()
-        test_math_reward()
-        test_answer_extraction()
         await test_tir_workflow()
         test_data_loading()
         
