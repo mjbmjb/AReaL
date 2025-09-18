@@ -214,7 +214,7 @@ async def _multi_round_response(self, engine, prompt_ids, data):
 
 ### 2. 数据准备
 
-项目使用数学推理数据集，以TORL数据集为例，数据格式如下：
+项目使用数学推理数据集，以ToRL数据集为例，数据格式如下：
 
 ```json
 {"messages": [{"role": "user", "content": "What is 15 + 27?"}], "answer": "42"}
@@ -276,7 +276,7 @@ TODO
 
 - 训练使用了[Qwen2.5-Math-1.5B](https://huggingface.co/Qwen/Qwen2.5-Math-1.5B) 作为基模型。
 - 奖励仅用结果是否正确。
-- 训练Prompt参考[TORL](https://arxiv.org/pdf/2503.23383), 仅提示模型可以用编程工具，具体可以查看`examples/tir/prompts.py`
+- 训练Prompt参考[ToRL](https://arxiv.org/pdf/2503.23383), 仅提示模型可以用编程工具，具体可以查看`examples/tir/prompts.py`
 
 ### 2. 训练曲线
 
