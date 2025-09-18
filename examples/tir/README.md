@@ -14,12 +14,9 @@
 
 ## 代码组成逻辑
 
-### 1. 整体架构
+### 1. 核心组件
 
-
-### 2. 核心组件
-
-#### 2.1 TIRWorkflow (`tir_workflow.py`)
+#### 1.1 TIRWorkflow (`tir_workflow.py`)
 - **功能**: 核心工作流，管理多轮推理过程
 - **关键特性**:
   - 继承自AReaL的`RolloutWorkflow`基类
@@ -27,7 +24,7 @@
   - 实现流式生成和工具调用检测
   - 集成奖励函数计算
 
-#### 2.2 ToolManager (`tool_manager.py`)
+#### 1.2 ToolManager (`tool_manager.py`)
 - **功能**: 工具管理器，负责协调工具调用
 - **支持的工具**:
   - **Python执行器**: 执行Python代码进行数学计算
@@ -37,21 +34,21 @@
   - 安全的代码执行环境
   - 统一的工具调用接口
 
-#### 2.3 工具实现 (`tools/`)
+#### 1.3 工具实现 (`tools/`)
 - **BaseTool** (`tools/base.py`): 工具基类，定义工具接口
 - **QwenPythonTool** (`tools/python_tool.py`): Python代码执行工具
 - **CalculatorTool** (`tools/calculator_tool.py`): 数学计算工具
 
-#### 2.4 训练脚本 (`train_tir.py`)
+#### 1.4 训练脚本 (`train_tir.py`)
 - **功能**: 完整的训练流程实现
 - **特性**:
   - 集成AReaL的PPO训练框架
   - 支持分布式训练
   - 完整的评估和保存机制
 
-### 3. 工具调用机制
+### 2. 工具调用机制
 
-#### 3.1 工具调用格式
+#### 2.1 工具调用格式
 
 执行Python代码
 ```python
@@ -65,7 +62,7 @@ print(f"The result is {a + b}")
 <calculator>1 + 2 * 3</calculator>
 ```
 
-#### 3.2 流式生成与工具调用检测
+#### 2.2 流式生成与工具调用检测
 主要流程：
 1. 模型生成到工具调用标记时暂停
 2. 检测并解析工具调用内容
@@ -224,13 +221,17 @@ train_dataset:
 valid_dataset:
   path: /path/to/valid/data.parquet
   batch_size: 64
-
-# TIR特定配置
-tir:
-  max_turns: 5
-  tool_timeout: 30
-  enable_tools: ["python", "calculator"]
 ```
+
+**注:** 为避免修改公共配置代码, 目前TIR相关的配置hard code在`examples/tir/train_tir.py`, 需要自行修改。
+```python
+TIR_CONFIG = {
+    "max_turns": 2,
+    "tool_timeout": 30,
+    "enable_tools": ["python", "calculator"]
+}
+```
+
 
 ### 4. 运行训练
 
@@ -277,7 +278,7 @@ TODO
 
   工具调用次数和成功率变化，随训练进行，单个回答调用tool次数0.9->1.2, tool调用成功率没有明显变化。
 
-### 2. 评估
+### 3. 评估
 
 TODO
 
